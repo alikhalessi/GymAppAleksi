@@ -52,6 +52,22 @@ def get_session_set_or_404(
     return session_set
 
 
+def session_set_exists(
+    session_id: int,
+    workout_exercise_id: int,
+    set_number: int,
+    db: Session,
+) -> bool:
+    existing_id = db.scalar(
+        select(models.SessionSet.id).where(
+            models.SessionSet.workout_session_id == session_id,
+            models.SessionSet.workout_exercise_id == workout_exercise_id,
+            models.SessionSet.set_number == set_number,
+        )
+    )
+    return existing_id is not None
+
+
 @router.post("/start", response_model=schemas.WorkoutSessionRead, status_code=status.HTTP_201_CREATED)
 def start_session(
     session_in: schemas.WorkoutSessionCreate,
@@ -113,6 +129,17 @@ def create_session_set(
         )
 
     get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db)
+    if session_set_exists(
+        session_id,
+        session_set_in.workout_exercise_id,
+        session_set_in.set_number,
+        db,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session set already exists. Use update instead.",
+        )
+
     session_set = models.SessionSet(
         workout_session_id=session_id,
         **session_set_in.model_dump(),

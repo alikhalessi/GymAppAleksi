@@ -41,6 +41,36 @@ def create_training_plan() -> tuple[int, int, int]:
     return program_id, workout_day_id, workout_exercise_id
 
 
+def start_test_session() -> tuple[int, int]:
+    program_id, workout_day_id, workout_exercise_id = create_training_plan()
+    start_response = client.post(
+        "/sessions/start",
+        json={
+            "program_id": program_id,
+            "workout_day_id": workout_day_id,
+            "readiness_score": 7,
+            "notes": "Ready enough.",
+        },
+    )
+    assert start_response.status_code == 201
+    return int(start_response.json()["id"]), workout_exercise_id
+
+
+def create_test_session_set(session_id: int, workout_exercise_id: int) -> int:
+    create_set_response = client.post(
+        f"/sessions/{session_id}/sets",
+        json={
+            "workout_exercise_id": workout_exercise_id,
+            "set_number": 1,
+            "planned_reps": "6-8",
+            "planned_weight": 60,
+            "weight_unit": "kg",
+        },
+    )
+    assert create_set_response.status_code == 201
+    return int(create_set_response.json()["id"])
+
+
 def test_workout_session_mode_flow() -> None:
     program_id, workout_day_id, workout_exercise_id = create_training_plan()
 
@@ -114,3 +144,70 @@ def test_workout_session_mode_flow() -> None:
     recent_response = client.get("/sessions/recent")
     assert recent_response.status_code == 200
     assert any(session["id"] == session_id for session in recent_response.json())
+
+
+def test_duplicate_session_set_creation_is_rejected() -> None:
+    session_id, workout_exercise_id = start_test_session()
+    create_test_session_set(session_id, workout_exercise_id)
+
+    duplicate_response = client.post(
+        f"/sessions/{session_id}/sets",
+        json={
+            "workout_exercise_id": workout_exercise_id,
+            "set_number": 1,
+            "planned_reps": "6-8",
+            "planned_weight": 60,
+            "weight_unit": "kg",
+        },
+    )
+
+    assert duplicate_response.status_code == 400
+    assert duplicate_response.json()["detail"] == "Session set already exists. Use update instead."
+
+
+def test_cannot_add_set_after_finishing_session() -> None:
+    session_id, workout_exercise_id = start_test_session()
+
+    finish_response = client.post(
+        f"/sessions/{session_id}/finish",
+        json={"notes": "Done.", "readiness_score": 7},
+    )
+    assert finish_response.status_code == 200
+
+    create_after_finish_response = client.post(
+        f"/sessions/{session_id}/sets",
+        json={
+            "workout_exercise_id": workout_exercise_id,
+            "set_number": 1,
+            "planned_reps": "6-8",
+            "planned_weight": 60,
+            "weight_unit": "kg",
+        },
+    )
+
+    assert create_after_finish_response.status_code == 400
+    assert create_after_finish_response.json()["detail"] == "Cannot add sets to a finished session"
+
+
+def test_cannot_update_set_after_finishing_session() -> None:
+    session_id, workout_exercise_id = start_test_session()
+    session_set_id = create_test_session_set(session_id, workout_exercise_id)
+
+    finish_response = client.post(
+        f"/sessions/{session_id}/finish",
+        json={"notes": "Done.", "readiness_score": 7},
+    )
+    assert finish_response.status_code == 200
+
+    update_after_finish_response = client.put(
+        f"/sessions/{session_id}/sets/{session_set_id}",
+        json={
+            "actual_reps": 8,
+            "actual_weight": 62.5,
+            "difficulty_rating": 8,
+            "completed": True,
+        },
+    )
+
+    assert update_after_finish_response.status_code == 400
+    assert update_after_finish_response.json()["detail"] == "Cannot update sets in a finished session"

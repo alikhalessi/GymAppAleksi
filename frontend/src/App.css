@@ -276,6 +276,38 @@ select:disabled {
   margin-bottom: 0;
 }
 
+.recent-sessions-card,
+.session-summary-panel {
+  margin-bottom: 1.35rem;
+}
+
+.session-summary-panel,
+.rest-placeholder {
+  border: 1px solid rgba(115, 242, 156, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+}
+
+.session-summary-panel {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 1rem;
+}
+
+.session-summary-panel h3,
+.session-summary-panel p,
+.rest-placeholder p {
+  margin: 0;
+}
+
+.rest-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .success-message {
   border: 1px solid rgba(115, 242, 156, 0.28);
   border-radius: 18px;

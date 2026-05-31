@@ -93,7 +93,10 @@ function App() {
   const [readiness, setReadiness] = useState<ReadinessProfile>(defaultReadiness);
   const [enhancement, setEnhancement] = useState<EnhancementResponse | null>(null);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+  const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [sessionFinishedMessage, setSessionFinishedMessage] = useState<string | null>(null);
+  const [restSuggestionSeconds, setRestSuggestionSeconds] = useState<number | null>(null);
+  const [restDoneMessage, setRestDoneMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +112,14 @@ function App() {
   const readinessScore = Math.round((readiness.energy_level + readiness.sleep_quality + (11 - readiness.soreness_level) + (11 - readiness.stress_level)) / 4);
   const totalExercises = exercises.length;
   const totalVideos = youtubeVideos.length;
+  const activeSessionSummary = useMemo(() => {
+    if (!activeSession || activeSession.status !== "completed") return null;
+    const completedSets = activeSession.session_sets.filter((set) => set.completed);
+    const exerciseIds = new Set(completedSets.map((set) => set.workout_exercise_id));
+    const ratings = completedSets.map((set) => set.difficulty_rating).filter((rating): rating is number => rating !== null);
+    const averageDifficulty = ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
+    return { completedSets: completedSets.length, exercisesTouched: exerciseIds.size, averageDifficulty };
+  }, [activeSession]);
 
   async function api<T>(path: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -135,8 +146,9 @@ function App() {
   }
   async function loadPlannedSets(exerciseId: number) { setPlannedSets(await api<PlannedSet[]>(`/exercises/${exerciseId}/planned-sets`)); }
   async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
+  async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadWorkoutDays(selectedProgramId).catch((e) => setError(e.message));
@@ -228,7 +240,7 @@ function App() {
 
   async function startWorkoutSession() {
     if (selectedProgramId === null || selectedWorkoutDayId === null) return;
-    setError(null); setSessionFinishedMessage(null); setLoading("Starting session");
+    setError(null); setSessionFinishedMessage(null); setRestSuggestionSeconds(null); setRestDoneMessage(null); setLoading("Starting session");
     try {
       const session = await api<WorkoutSession>("/sessions/start", {
         method: "POST",
@@ -241,6 +253,7 @@ function App() {
         }),
       });
       setActiveSession(session);
+      await loadRecentSessions();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not start session."); }
     finally { setLoading(null); }
@@ -283,6 +296,8 @@ function App() {
         };
       });
       setSessionSetForm({ set_number: String(setNumber + 1), actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" });
+      setRestSuggestionSeconds(selectedExercise.rest_seconds);
+      setRestDoneMessage(null);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not save set."); }
     finally { setLoading(null); }
@@ -302,6 +317,9 @@ function App() {
       });
       setActiveSession(finished);
       setSessionFinishedMessage(`Session finished. ${finished.session_sets.filter((set) => set.completed).length} sets saved.`);
+      setRestSuggestionSeconds(null);
+      setRestDoneMessage(null);
+      await loadRecentSessions();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not finish session."); }
     finally { setLoading(null); }
@@ -325,6 +343,13 @@ function App() {
         <article className="mission-card"><p className="eyebrow">Readiness</p><h3>{readinessScore}/10</h3><p>Energy {readiness.energy_level}, sleep {readiness.sleep_quality}, soreness {readiness.soreness_level}, stress {readiness.stress_level}.</p><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("enhance")}>Adjust readiness</button></article>
         <article className="mission-card"><p className="eyebrow">Program memory</p><h3>{programs.length} programs</h3><p>{workoutDays.length} days loaded · {totalExercises} exercises in selected day.</p><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("programs")}>Open library</button></article>
         <article className="mission-card"><p className="eyebrow">Technique layer</p><h3>{totalVideos} videos</h3><p>{selectedExercise ? `Selected: ${selectedExercise.movement_name}` : "Select an exercise to attach examples."}</p><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("training")}>Open exercise cockpit</button></article>
+      </div>
+      <div className="program-list recent-sessions-card">
+        <div className="list-header"><h3>Recent Sessions</h3><button className="secondary-button compact-button" type="button" onClick={() => void loadRecentSessions()}>Refresh</button></div>
+        {recentSessions.length === 0 ? <p className="empty-state">No sessions yet. Start one from the Training cockpit and completed sets will show here.</p> : <div className="program-cards">{recentSessions.slice(0, 5).map((session) => {
+          const completedCount = session.session_sets.filter((set) => set.completed).length;
+          return <article className="program-card" key={session.id}><div><h4>Session #{session.id}</h4><p>Status: {session.status} · completed sets: {completedCount}</p><span>Started: {new Date(session.started_at).toLocaleString()}</span>{session.finished_at ? <span>Finished: {new Date(session.finished_at).toLocaleString()}</span> : <span>Finished: not yet</span>}</div></article>;
+        })}</div>}
       </div>
       <div className="program-grid"><div className="program-list"><h3>Quick Actions</h3><div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Paste / extract plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance current plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Weights & videos</button><button className="secondary-button" type="button" onClick={() => setActiveView("settings")}>API settings</button></div></div><div className="program-list"><h3>Next product milestone</h3><p>Session mode is the real shark-tank milestone: start workout, log actual sets, run rest timer, finish summary, and make next workout smarter.</p></div></div>
     </section>;
@@ -369,6 +394,7 @@ function App() {
           </div>
         </div>
         {sessionFinishedMessage ? <p className="success-message">{sessionFinishedMessage}</p> : null}
+        {activeSessionSummary ? <div className="session-summary-panel"><h3>Session summary</h3><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
         {sessionIsActive ? <div className="program-grid session-grid">
           <form className="program-form" onSubmit={saveSessionSet}>
             <h3>Log set</h3>
@@ -384,6 +410,8 @@ function App() {
             <p className="muted">Target: {selectedPlannedSet?.target_reps ?? selectedExercise?.reps ?? "none"} reps · {selectedPlannedSet?.suggested_weight ?? "no planned weight"} {selectedPlannedSet?.weight_unit ?? "kg"}</p>
             <label>Set notes<textarea value={sessionSetForm.notes} onChange={(e) => setSessionSetForm({ ...sessionSetForm, notes: e.target.value })} /></label>
             <button className="primary-button" disabled={!selectedExercise || loading !== null} type="submit">Save set</button>
+            {restSuggestionSeconds !== null ? <div className="rest-placeholder"><p>Suggested rest: {restSuggestionSeconds} seconds</p><button className="secondary-button compact-button" type="button" onClick={() => { setRestSuggestionSeconds(null); setRestDoneMessage("Rest marked done."); }}>Mark rest done</button></div> : null}
+            {restDoneMessage ? <p className="muted">{restDoneMessage}</p> : null}
           </form>
           <div className="program-list">
             <h3>Saved sets</h3>
