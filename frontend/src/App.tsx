@@ -18,6 +18,21 @@ const API_BASE_URL = "http://127.0.0.1:8000";
 const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
 const defaultReadiness: ReadinessProfile = { age: 45, sex: "", height_cm: 167, weight_kg: 98, bmi: 35.1, training_experience: "intermediate", primary_goal: "strength and fat loss", energy_level: 7, sleep_quality: 7, soreness_level: 4, stress_level: 5, pain_or_limitations: "", available_equipment: "full gym", session_time_limit_minutes: 75, difficulty_preference: "moderate", extra_notes: "" };
 
+function formatApiError(data: unknown, fallback: string): string {
+  if (!data) return fallback;
+  if (typeof data === "string") return data;
+  if (Array.isArray(data)) return data.map((item) => formatApiError(item, fallback)).join("\n");
+  if (typeof data === "object") {
+    const record = data as { detail?: unknown; message?: unknown; error?: unknown; loc?: unknown[]; msg?: string };
+    if (record.detail) return formatApiError(record.detail, fallback);
+    if (record.message) return formatApiError(record.message, fallback);
+    if (record.error) return formatApiError(record.error, fallback);
+    if (record.msg) return `${Array.isArray(record.loc) ? record.loc.join(".") : "field"}: ${record.msg}`;
+    return JSON.stringify(data, null, 2);
+  }
+  return String(data);
+}
+
 function extractYouTubeVideoId(input: string): string {
   const value = input.trim();
   if (!value) return "";
@@ -25,17 +40,12 @@ function extractYouTubeVideoId(input: string): string {
 
   try {
     const url = new URL(value);
-    if (url.hostname.includes("youtu.be")) {
-      return url.pathname.split("/").filter(Boolean)[0] ?? "";
-    }
-
+    if (url.hostname.includes("youtu.be")) return url.pathname.split("/").filter(Boolean)[0] ?? "";
     const watchId = url.searchParams.get("v");
     if (watchId) return watchId;
-
     const parts = url.pathname.split("/").filter(Boolean);
     const markerIndex = parts.findIndex((part) => ["embed", "shorts", "live"].includes(part));
     if (markerIndex >= 0 && parts[markerIndex + 1]) return parts[markerIndex + 1];
-
     return parts[parts.length - 1] ?? "";
   } catch {
     return value;
@@ -86,7 +96,7 @@ function App() {
   async function api<T>(path: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${path}`, options);
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.detail ?? `Request failed: ${path}`);
+    if (!response.ok) throw new Error(formatApiError(data, `Request failed: ${path}`));
     return data as T;
   }
 
@@ -198,6 +208,13 @@ function App() {
     try { await api<YouTubeVideo>(`/exercises/${selectedExerciseId}/youtube-videos`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: String(youtubeVideos.length + 2) }); await loadYouTubeVideos(selectedExerciseId); }
     catch (e) { setError(e instanceof Error ? e.message : "Could not save YouTube video."); }
   }
+  async function findYouTubeExamples() {
+    if (selectedExerciseId === null) return;
+    setError(null); setLoading("Finding YouTube examples");
+    try { await api<YouTubeVideo[]>(`/exercises/${selectedExerciseId}/youtube-videos/search-and-save`, { method: "POST" }); await loadYouTubeVideos(selectedExerciseId); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not find YouTube examples."); }
+    finally { setLoading(null); }
+  }
 
   async function deleteProgram(id: number) { await api(`/programs/${id}`, { method: "DELETE" }); await loadPrograms(); }
   async function deleteWorkoutDay(id: number) { if (selectedProgramId !== null) { await api(`/programs/${selectedProgramId}/workout-days/${id}`, { method: "DELETE" }); await loadWorkoutDays(selectedProgramId); } }
@@ -213,7 +230,7 @@ function App() {
     <header className="top-bar"><h1 className="brand">SetPilot</h1><span className="phase-label">Extract → Enhance → Weights → Videos</span></header>
     <section className="dashboard"><div className="intro"><h2>Paste chaos. Train with structure.</h2><p>Extract the plan, enhance it, prepare set-level weights, and attach video examples. Investor brain says: this is becoming a gym operating system, not another sad tracker.</p></div><div className="actions">{["API Key", "Extract", "Enhance", "Videos"].map((label) => <button className="action-button" key={label} type="button">{label}<span>Current workflow</span></button>)}</div></section>
     {error ? <section className="program-workspace"><p className="error-message global-error">{error}</p></section> : null}
-    {loading ? <section className="program-workspace"><p className="global-error">{loading}... High-reasoning models may take time. The beast is thinking, not sleeping.</p></section> : null}
+    {loading ? <section className="program-workspace"><p className="global-error">{loading}... High-reasoning/API calls may take time. The beast is working, not sleeping.</p></section> : null}
 
     <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Settings</p><h2>OpenAI API Key</h2></div><p>Session-only backend storage. No GitHub leak. No front-door key under the doormat.</p></div><div className="program-grid"><form className="program-form" onSubmit={saveOpenAIKey}><h3>AI access</h3><p className="muted">Status: {openAIKeyStatus.configured ? `Configured from ${openAIKeyStatus.source} (${openAIKeyStatus.masked_key})` : "Not configured"}</p><label>API key<input autoComplete="off" type="password" value={openAIKeyInput} onChange={(e) => setOpenAIKeyInput(e.target.value)} /></label><div className="form-actions"><button className="primary-button" disabled={!openAIKeyInput.trim()} type="submit">Save key</button><button className="secondary-button" type="button" onClick={() => void loadOpenAIKeyStatus()}>Check</button><button className="danger-button" type="button" onClick={() => void clearOpenAIKey()}>Clear</button></div></form><div className="program-list"><h3>Workflow rule</h3><p>Extraction stays faithful. Enhancement is optional. Videos are stored per exercise so we do not keep searching like quota-burning maniacs.</p></div></div></section>
 
@@ -229,7 +246,7 @@ function App() {
 
       <div className="program-grid"><form className="program-form" onSubmit={handlePlannedSetSubmit}><h3>{editingPlannedSetId ? "Edit planned set" : "Add planned set weight"}</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><div className="inline-fields"><label>Set number<input disabled={selectedExerciseId === null} type="number" value={plannedSetForm.set_number} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, set_number: e.target.value })} /></label><label>Target reps<input disabled={selectedExerciseId === null} value={plannedSetForm.target_reps} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, target_reps: e.target.value })} /></label></div><div className="inline-fields"><label>Suggested weight<input disabled={selectedExerciseId === null} list="weight-options" type="number" step="0.5" value={plannedSetForm.suggested_weight} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, suggested_weight: e.target.value })} /><datalist id="weight-options"><option value="20" /><option value="30" /><option value="40" /><option value="50" /><option value="60" /><option value="80" /><option value="100" /></datalist></label><label>Unit<select disabled={selectedExerciseId === null} value={plannedSetForm.weight_unit} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, weight_unit: e.target.value })}><option value="kg">kg</option><option value="lb">lb</option><option value="bodyweight">bodyweight</option></select></label></div><label>Note<textarea disabled={selectedExerciseId === null} value={plannedSetForm.note} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, note: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">{editingPlannedSetId ? "Save planned set" : "Add planned set"}</button></form><div className="program-list"><h3>Planned set weights</h3>{selectedExercise ? <p className="muted">For {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first. Weights without an exercise are just numbers doing cosplay.</p>}<div className="program-cards">{plannedSets.map((set) => <article className="program-card" key={set.id}><div><h4>Set {set.set_number}</h4><p>{set.target_reps} reps · {set.suggested_weight ?? "—"} {set.weight_unit}</p><span>{set.note || "No note"}</span></div><div className="card-actions"><button className="secondary-button compact-button" onClick={() => { setEditingPlannedSetId(set.id); setPlannedSetForm({ set_number: String(set.set_number), target_reps: set.target_reps, suggested_weight: set.suggested_weight === null ? "" : String(set.suggested_weight), weight_unit: set.weight_unit, note: set.note }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deletePlannedSet(set.id)} type="button">Delete</button></div></article>)}</div></div></div>
 
-      <div className="program-grid"><form className="program-form" onSubmit={handleYouTubeSubmit}><h3>Add YouTube example</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><label>YouTube link or video ID<input disabled={selectedExerciseId === null} placeholder="https://youtu.be/... or video ID" value={youtubeForm.input} onChange={(e) => setYoutubeForm({ ...youtubeForm, input: e.target.value })} /></label><label>Title<input disabled={selectedExerciseId === null} placeholder="Bench Press tutorial" value={youtubeForm.title} onChange={(e) => setYoutubeForm({ ...youtubeForm, title: e.target.value })} /></label><div className="inline-fields"><label>Channel<input disabled={selectedExerciseId === null} value={youtubeForm.channel_name} onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })} /></label><label>Order<input disabled={selectedExerciseId === null} type="number" value={youtubeForm.display_order} onChange={(e) => setYoutubeForm({ ...youtubeForm, display_order: e.target.value })} /></label></div><label>Thumbnail URL optional<input disabled={selectedExerciseId === null} value={youtubeForm.thumbnail_url} onChange={(e) => setYoutubeForm({ ...youtubeForm, thumbnail_url: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">Add video</button></form><div className="program-list"><h3>YouTube examples</h3>{selectedExercise ? <p className="muted">Stored videos for {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first. Videos need a movement, not vibes.</p>}<div className="video-grid">{youtubeVideos.map((video) => <article className="video-card" key={video.id}><iframe className="video-frame" src={`https://www.youtube.com/embed/${video.youtube_video_id}`} title={video.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /><div className="video-meta"><h4>{video.title}</h4><p>{video.channel_name || "Unknown channel"}</p><button className="danger-button compact-button" onClick={() => void deleteYouTubeVideo(video.id)} type="button">Remove</button></div></article>)}</div></div></div>
+      <div className="program-grid"><form className="program-form" onSubmit={handleYouTubeSubmit}><h3>Add YouTube example</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><button className="secondary-button" disabled={selectedExerciseId === null || loading !== null} type="button" onClick={() => void findYouTubeExamples()}>Find YouTube examples automatically</button><label>YouTube link or video ID<input disabled={selectedExerciseId === null} placeholder="https://youtu.be/... or video ID" value={youtubeForm.input} onChange={(e) => setYoutubeForm({ ...youtubeForm, input: e.target.value })} /></label><label>Title<input disabled={selectedExerciseId === null} placeholder="Bench Press tutorial" value={youtubeForm.title} onChange={(e) => setYoutubeForm({ ...youtubeForm, title: e.target.value })} /></label><div className="inline-fields"><label>Channel<input disabled={selectedExerciseId === null} value={youtubeForm.channel_name} onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })} /></label><label>Order<input disabled={selectedExerciseId === null} type="number" value={youtubeForm.display_order} onChange={(e) => setYoutubeForm({ ...youtubeForm, display_order: e.target.value })} /></label></div><label>Thumbnail URL optional<input disabled={selectedExerciseId === null} value={youtubeForm.thumbnail_url} onChange={(e) => setYoutubeForm({ ...youtubeForm, thumbnail_url: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">Add video manually</button></form><div className="program-list"><h3>YouTube examples</h3>{selectedExercise ? <p className="muted">Stored videos for {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first. Videos need a movement, not vibes.</p>}<div className="video-grid">{youtubeVideos.map((video) => <article className="video-card" key={video.id}><iframe className="video-frame" src={`https://www.youtube.com/embed/${video.youtube_video_id}`} title={video.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /><div className="video-meta"><h4>{video.title}</h4><p>{video.channel_name || "Unknown channel"}</p><button className="danger-button compact-button" onClick={() => void deleteYouTubeVideo(video.id)} type="button">Remove</button></div></article>)}</div></div></div>
     </section>
   </main>;
 }
