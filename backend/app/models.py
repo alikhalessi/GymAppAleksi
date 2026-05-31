@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -69,14 +69,14 @@ class WorkoutExercise(Base):
         back_populates="workout_exercise",
         cascade="all, delete-orphan",
     )
+    youtube_videos: Mapped[list["YouTubeVideo"]] = relationship(
+        back_populates="workout_exercise",
+        cascade="all, delete-orphan",
+    )
 
 
 class PlannedSet(Base):
-    """Set-level prescription for a workout exercise.
-
-    This is where suggested/planned weights live. Actual performance will later
-    be stored separately in session set records when workout execution mode is built.
-    """
+    """Set-level prescription for a workout exercise."""
 
     __tablename__ = "planned_sets"
 
@@ -96,4 +96,26 @@ class PlannedSet(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="planned_sets")
 
 
-__all__ = ["Base", "Program", "WorkoutDay", "WorkoutExercise", "PlannedSet"]
+class YouTubeVideo(Base):
+    """Stored YouTube example video for a workout exercise."""
+
+    __tablename__ = "youtube_videos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_exercises.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    youtube_video_id: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel_name: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    thumbnail_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="youtube_videos")
+
+
+__all__ = ["Base", "Program", "WorkoutDay", "WorkoutExercise", "PlannedSet", "YouTubeVideo"]
