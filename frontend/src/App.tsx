@@ -7,7 +7,7 @@ type WorkoutExercise = { id: number; workout_day_id: number; movement_name: stri
 type ProgramFormState = { name: string; goal: string; duration_weeks: string };
 type WorkoutDayFormState = { name: string; day_order: string };
 type ExerciseFormState = { movement_name: string; sets: string; reps: string; rest_seconds: string; notes: string; exercise_order: string };
-
+type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
 type AIParsedWorkoutDay = { name: string; day_order: number; exercises: AIParsedExercise[] };
 type AIParsedPlan = { program: { name: string; goal: string; duration_weeks: number }; workout_days: AIParsedWorkoutDay[] };
@@ -31,6 +31,9 @@ function App() {
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [exerciseForm, setExerciseForm] = useState<ExerciseFormState>(emptyExerciseForm);
   const [editingExerciseId, setEditingExerciseId] = useState<number | null>(null);
+  const [openAIKeyInput, setOpenAIKeyInput] = useState("");
+  const [openAIKeyStatus, setOpenAIKeyStatus] = useState<OpenAIKeyStatus>({ configured: false, source: null, masked_key: null });
+  const [isSavingKey, setIsSavingKey] = useState(false);
   const [importText, setImportText] = useState(sampleImportText);
   const [importAnalysis, setImportAnalysis] = useState<ImportAnalysis | null>(null);
   const [isAnalyzingImport, setIsAnalyzingImport] = useState(false);
@@ -42,6 +45,38 @@ function App() {
 
   const selectedProgram = useMemo(() => programs.find((p) => p.id === selectedProgramId) ?? null, [programs, selectedProgramId]);
   const selectedWorkoutDay = useMemo(() => workoutDays.find((d) => d.id === selectedWorkoutDayId) ?? null, [workoutDays, selectedWorkoutDayId]);
+
+  async function loadOpenAIKeyStatus() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/settings/openai-key`);
+      if (!response.ok) throw new Error("Could not load OpenAI key status.");
+      setOpenAIKeyStatus((await response.json()) as OpenAIKeyStatus);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unexpected error while loading OpenAI key status.");
+    }
+  }
+
+  async function saveOpenAIKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(null); setIsSavingKey(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/settings/openai-key`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ api_key: openAIKeyInput }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail ?? "Could not save OpenAI API key.");
+      setOpenAIKeyStatus(data as OpenAIKeyStatus); setOpenAIKeyInput("");
+    } catch (err) { setError(err instanceof Error ? err.message : "Unexpected error while saving OpenAI key."); }
+    finally { setIsSavingKey(false); }
+  }
+
+  async function clearOpenAIKey() {
+    setError(null); setIsSavingKey(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/settings/openai-key`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail ?? "Could not clear OpenAI API key.");
+      setOpenAIKeyStatus(data as OpenAIKeyStatus);
+    } catch (err) { setError(err instanceof Error ? err.message : "Unexpected error while clearing OpenAI key."); }
+    finally { setIsSavingKey(false); }
+  }
 
   async function loadPrograms() {
     setIsLoadingPrograms(true); setError(null);
@@ -77,7 +112,7 @@ function App() {
     finally { setIsLoadingExercises(false); }
   }
 
-  useEffect(() => { void loadPrograms(); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus(); void loadPrograms(); }, []);
   useEffect(() => { if (selectedProgramId === null) { setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); return; } void loadWorkoutDays(selectedProgramId); }, [selectedProgramId]);
   useEffect(() => { if (selectedProgramId === null || selectedWorkoutDayId === null) { setExercises([]); return; } void loadExercises(selectedProgramId, selectedWorkoutDayId); }, [selectedProgramId, selectedWorkoutDayId]);
 
@@ -138,21 +173,21 @@ function App() {
   function startEditingProgram(p: Program) { setEditingProgramId(p.id); setProgramForm({ name: p.name, goal: p.goal, duration_weeks: String(p.duration_weeks) }); }
   function startEditingWorkoutDay(d: WorkoutDay) { setEditingWorkoutDayId(d.id); setWorkoutDayForm({ name: d.name, day_order: String(d.day_order) }); }
   function startEditingExercise(e: WorkoutExercise) { setEditingExerciseId(e.id); setExerciseForm({ movement_name: e.movement_name, sets: String(e.sets), reps: e.reps, rest_seconds: String(e.rest_seconds), notes: e.notes, exercise_order: String(e.exercise_order) }); }
-
   async function deleteProgram(id: number) { setError(null); try { const r = await fetch(`${API_BASE_URL}/programs/${id}`, { method: "DELETE" }); if (!r.ok) throw new Error("Could not delete the program."); if (editingProgramId === id) resetProgramForm(); if (selectedProgramId === id) { setSelectedProgramId(null); setSelectedWorkoutDayId(null); setWorkoutDays([]); setExercises([]); resetWorkoutDayForm(); resetExerciseForm(); } await loadPrograms(); } catch (err) { setError(err instanceof Error ? err.message : "Unexpected error while deleting program."); } }
   async function deleteWorkoutDay(id: number) { if (selectedProgramId === null) return; setError(null); try { const r = await fetch(`${API_BASE_URL}/programs/${selectedProgramId}/workout-days/${id}`, { method: "DELETE" }); if (!r.ok) throw new Error("Could not delete the workout day."); if (editingWorkoutDayId === id) resetWorkoutDayForm(); if (selectedWorkoutDayId === id) { setSelectedWorkoutDayId(null); setExercises([]); resetExerciseForm(); } await loadWorkoutDays(selectedProgramId); } catch (err) { setError(err instanceof Error ? err.message : "Unexpected error while deleting workout day."); } }
   async function deleteExercise(id: number) { if (selectedProgramId === null || selectedWorkoutDayId === null) return; setError(null); try { const r = await fetch(`${API_BASE_URL}/programs/${selectedProgramId}/workout-days/${selectedWorkoutDayId}/exercises/${id}`, { method: "DELETE" }); if (!r.ok) throw new Error("Could not delete the exercise."); if (editingExerciseId === id) resetExerciseForm(); await loadExercises(selectedProgramId, selectedWorkoutDayId); } catch (err) { setError(err instanceof Error ? err.message : "Unexpected error while deleting exercise."); } }
-
   function selectProgram(id: number) { setSelectedProgramId(id); setSelectedWorkoutDayId(null); resetWorkoutDayForm(); resetExerciseForm(); }
   function selectWorkoutDay(id: number) { setSelectedWorkoutDayId(id); resetExerciseForm(); }
 
   return (
     <main className="app-shell">
       <header className="top-bar"><h1 className="brand">SetPilot</h1><span className="phase-label">AI Import + Program Builder</span></header>
-      <section className="dashboard"><div className="intro"><h2>Paste a plan. Make it trainable.</h2><p>SetPilot converts messy workout text into structured programs, workout days, and exercises. Manual editing stays available because AI should assist, not hallucinate with a whistle.</p></div><div className="actions">{["AI Import", "Programs", "Workout Days", "Exercises"].map((label) => <button className="action-button" key={label} type="button">{label}<span>Current MVP layer</span></button>)}</div></section>
+      <section className="dashboard"><div className="intro"><h2>Paste a plan. Make it trainable.</h2><p>SetPilot converts messy workout text into structured programs, workout days, and exercises. Manual editing stays available because AI should assist, not hallucinate with a whistle.</p></div><div className="actions">{["AI Key", "AI Import", "Programs", "Exercises"].map((label) => <button className="action-button" key={label} type="button">{label}<span>Current MVP layer</span></button>)}</div></section>
       {error ? <section className="program-workspace"><p className="error-message global-error">{error}</p></section> : null}
 
-      <section className="program-workspace import-panel"><div className="section-heading"><div><p className="eyebrow">Fast input</p><h2>AI Workout Plan Import</h2></div><p>Paste plain text, analyze it, review the preview, then save it into the existing app structure.</p></div><form className="program-form import-form" onSubmit={analyzeImport}><label>Plain text workout plan<textarea className="import-textarea" onChange={(e) => setImportText(e.target.value)} value={importText} /></label><button className="primary-button" disabled={isAnalyzingImport} type="submit">{isAnalyzingImport ? "Analyzing..." : "Analyze with AI"}</button></form>{importAnalysis ? <div className="program-list import-preview"><div className="list-header"><h3>AI Preview</h3><button className="primary-button compact-button" disabled={isSavingImport} onClick={() => void saveImportedPlan()} type="button">{isSavingImport ? "Saving..." : "Save imported plan"}</button></div><p><strong>{importAnalysis.parsed_plan.program.name}</strong> · {importAnalysis.parsed_plan.program.duration_weeks} weeks · confidence {Math.round(importAnalysis.overall_confidence * 100)}%</p><p>{importAnalysis.parsed_plan.program.goal}</p>{importAnalysis.trainer_review_required ? <p className="warning-pill">Trainer review recommended</p> : null}{importAnalysis.warnings.length > 0 ? <ul>{importAnalysis.warnings.map((w) => <li key={w}>{w}</li>)}</ul> : null}{importAnalysis.questions_for_user.length > 0 ? <ul>{importAnalysis.questions_for_user.map((q) => <li key={q}>{q}</li>)}</ul> : null}<div className="program-cards">{importAnalysis.parsed_plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.day_order}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.warnings.length ? `— ${ex.warnings.join("; ")}` : ""}</p>)}</div></article>)}</div></div> : null}</section>
+      <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Settings</p><h2>OpenAI API Key</h2></div><p>The key is sent to the backend and kept only in backend memory for this running session. It is not hardcoded and not saved in GitHub.</p></div><div className="program-grid"><form className="program-form" onSubmit={saveOpenAIKey}><h3>AI access</h3><p className="muted">Status: {openAIKeyStatus.configured ? `Configured from ${openAIKeyStatus.source} (${openAIKeyStatus.masked_key})` : "Not configured"}</p><label>API key<input autoComplete="off" onChange={(e) => setOpenAIKeyInput(e.target.value)} placeholder="sk-..." type="password" value={openAIKeyInput} /></label><div className="form-actions"><button className="primary-button" disabled={isSavingKey || !openAIKeyInput.trim()} type="submit">{isSavingKey ? "Saving..." : "Save key for this session"}</button><button className="secondary-button" disabled={isSavingKey} onClick={() => void loadOpenAIKeyStatus()} type="button">Check status</button><button className="danger-button" disabled={isSavingKey || !openAIKeyStatus.configured} onClick={() => void clearOpenAIKey()} type="button">Clear session key</button></div></form><div className="program-list"><h3>Safety rule</h3><p>The browser only sends the key to your local backend. The backend uses it for AI import. When the backend restarts, the session key disappears. For production, this needs real accounts and encrypted storage.</p></div></div></section>
+
+      <section className="program-workspace import-panel"><div className="section-heading"><div><p className="eyebrow">Fast input</p><h2>AI Workout Plan Import</h2></div><p>Paste plain text, analyze it, review the preview, then save it into the existing app structure.</p></div><form className="program-form import-form" onSubmit={analyzeImport}><label>Plain text workout plan<textarea className="import-textarea" onChange={(e) => setImportText(e.target.value)} value={importText} /></label><button className="primary-button" disabled={isAnalyzingImport || !openAIKeyStatus.configured} type="submit">{isAnalyzingImport ? "Analyzing..." : openAIKeyStatus.configured ? "Analyze with AI" : "Add API key first"}</button></form>{importAnalysis ? <div className="program-list import-preview"><div className="list-header"><h3>AI Preview</h3><button className="primary-button compact-button" disabled={isSavingImport} onClick={() => void saveImportedPlan()} type="button">{isSavingImport ? "Saving..." : "Save imported plan"}</button></div><p><strong>{importAnalysis.parsed_plan.program.name}</strong> · {importAnalysis.parsed_plan.program.duration_weeks} weeks · confidence {Math.round(importAnalysis.overall_confidence * 100)}%</p><p>{importAnalysis.parsed_plan.program.goal}</p>{importAnalysis.trainer_review_required ? <p className="warning-pill">Trainer review recommended</p> : null}{importAnalysis.warnings.length > 0 ? <ul>{importAnalysis.warnings.map((w) => <li key={w}>{w}</li>)}</ul> : null}{importAnalysis.questions_for_user.length > 0 ? <ul>{importAnalysis.questions_for_user.map((q) => <li key={q}>{q}</li>)}</ul> : null}<div className="program-cards">{importAnalysis.parsed_plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.day_order}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.warnings.length ? `— ${ex.warnings.join("; ")}` : ""}</p>)}</div></article>)}</div></div> : null}</section>
 
       <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Layer 1</p><h2>Programs</h2></div><p>Create manually or save from AI import.</p></div><div className="program-grid"><form className="program-form" onSubmit={handleProgramSubmit}><h3>{editingProgramId ? "Edit program" : "Create program"}</h3><label>Program name<input onChange={(e) => setProgramForm({ ...programForm, name: e.target.value })} value={programForm.name} /></label><label>Goal<textarea onChange={(e) => setProgramForm({ ...programForm, goal: e.target.value })} value={programForm.goal} /></label><label>Duration in weeks<input type="number" onChange={(e) => setProgramForm({ ...programForm, duration_weeks: e.target.value })} value={programForm.duration_weeks} /></label><div className="form-actions"><button className="primary-button" type="submit">{editingProgramId ? "Save" : "Create"}</button>{editingProgramId ? <button className="secondary-button" onClick={resetProgramForm} type="button">Cancel</button> : null}</div></form><div className="program-list"><div className="list-header"><h3>Saved programs</h3><button className="text-button" onClick={() => void loadPrograms()} type="button">Refresh</button></div>{isLoadingPrograms ? <p className="muted">Loading...</p> : null}<div className="program-cards">{programs.map((p) => <article className={`program-card${selectedProgramId === p.id ? " selected-card" : ""}`} key={p.id}><div><h4>{p.name}</h4><p>{p.goal}</p><span>{p.duration_weeks} weeks</span></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => selectProgram(p.id)} type="button">{selectedProgramId === p.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => startEditingProgram(p)} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteProgram(p.id)} type="button">Delete</button></div></article>)}</div></div></div></section>
 
