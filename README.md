@@ -6,7 +6,7 @@ The product focuses on helping users execute planned workouts in the gym: unders
 
 ## Sprint 1 Status
 
-This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first four real product slices have been added: **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, and **AI Workout Plan Import**.
+This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first five real product slices have been added: **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, **AI Workout Plan Import**, and **In-App OpenAI Key Settings**.
 
 The current scaffold includes:
 
@@ -17,8 +17,12 @@ The current scaffold includes:
 - Program CRUD endpoints under `/programs`
 - Workout day CRUD endpoints under `/programs/{program_id}/workout-days`
 - Exercise CRUD endpoints under `/programs/{program_id}/workout-days/{workout_day_id}/exercises`
+- `GET /settings/openai-key` OpenAI key status endpoint
+- `POST /settings/openai-key` session-only OpenAI key save endpoint
+- `DELETE /settings/openai-key` session key clear endpoint
 - `POST /imports/workout-plan/analyze` AI analysis endpoint
 - `POST /imports/workout-plan/save` reviewed import save endpoint
+- Frontend OpenAI key settings panel with masked status, save, refresh, and clear controls
 - Frontend program creation, editing, deletion, refresh, selection, and listing UI
 - Frontend workout day creation, editing, deletion, refresh, selection, and listing UI for the selected program
 - Frontend exercise creation, editing, deletion, refresh, and listing UI for the selected workout day
@@ -30,19 +34,20 @@ Authentication, workout session logic, YouTube API integration, payments, traine
 
 The local MVP should support:
 
-1. Create workout programs.
-2. Add workout days.
-3. Add exercises with movement name, sets, reps, rest seconds, and notes.
-4. Paste a plain-text workout plan and use AI to structure it.
-5. Review AI import warnings, questions, and trainer-review recommendation.
-6. Save the reviewed AI import into the program/day/exercise tables.
-7. Show up to 5 stored YouTube examples per exercise.
-8. Start a workout session.
-9. Complete sets.
-10. Use workout timer and rest timer.
-11. Save weight, reps, and difficulty rating per set.
-12. Show a post-session summary.
-13. Show basic progress analysis.
+1. Enter an OpenAI API key in the app for the current backend session.
+2. Create workout programs.
+3. Add workout days.
+4. Add exercises with movement name, sets, reps, rest seconds, and notes.
+5. Paste a plain-text workout plan and use AI to structure it.
+6. Review AI import warnings, questions, and trainer-review recommendation.
+7. Save the reviewed AI import into the program/day/exercise tables.
+8. Show up to 5 stored YouTube examples per exercise.
+9. Start a workout session.
+10. Complete sets.
+11. Use workout timer and rest timer.
+12. Save weight, reps, and difficulty rating per set.
+13. Show a post-session summary.
+14. Show basic progress analysis.
 
 ## Tech Direction
 
@@ -51,6 +56,7 @@ The local MVP should support:
 - Local MVP database: SQLite with SQLAlchemy
 - Future production database: PostgreSQL
 - AI import: OpenAI API with Structured Outputs style JSON schema
+- API key handling for local MVP: session-only backend memory, with environment variable fallback
 - Charts later: Recharts
 - Authentication later: not included in Sprint 1
 
@@ -70,17 +76,20 @@ The local MVP should support:
 |   |   |   |-- health.py
 |   |   |   |-- imports.py
 |   |   |   |-- programs.py
+|   |   |   |-- settings.py
 |   |   |   |-- workout_days.py
 |   |   |   |-- workout_exercises.py
 |   |   |-- schemas.py
 |   |   |-- services
 |   |   |   |-- __init__.py
 |   |   |   |-- ai_import.py
+|   |   |   |-- runtime_settings.py
 |   |-- requirements.txt
 |   |-- tests
 |   |   |-- test_health.py
 |   |   |-- test_imports.py
 |   |   |-- test_programs.py
+|   |   |-- test_settings.py
 |   |   |-- test_workout_days.py
 |   |   |-- test_workout_exercises.py
 |-- docs
@@ -116,18 +125,6 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-For AI import, set an OpenAI API key in the same terminal before starting the backend:
-
-```powershell
-$env:OPENAI_API_KEY="your_api_key_here"
-```
-
-Optional model override:
-
-```powershell
-$env:OPENAI_WORKOUT_IMPORT_MODEL="gpt-4.1-mini"
-```
-
 Start backend:
 
 ```bash
@@ -146,6 +143,37 @@ Expected response:
 
 ```json
 {"status":"ok"}
+```
+
+### OpenAI API Key Setup
+
+The easiest local workflow is now inside the app:
+
+1. Start the backend.
+2. Start the frontend.
+3. Open the app.
+4. Paste your OpenAI API key into the **OpenAI API Key** settings card.
+5. Click **Save key for this session**.
+6. Use AI import.
+
+The key is kept only in backend memory for the current running backend process. It disappears when the backend restarts.
+
+Optional fallback: you can still use an environment variable instead of the app settings panel:
+
+```powershell
+$env:OPENAI_API_KEY="your_api_key_here"
+```
+
+Optional model override:
+
+```powershell
+$env:OPENAI_WORKOUT_IMPORT_MODEL="gpt-4.1-mini"
+```
+
+Check key status:
+
+```bash
+curl http://127.0.0.1:8000/settings/openai-key
 ```
 
 Analyze a plain-text workout plan:
@@ -183,7 +211,13 @@ npm run dev
 
 The frontend runs at the local URL printed by Vite, usually `http://localhost:5173`.
 
-Important: run the backend and frontend at the same time when testing program, workout day, exercise creation, and AI import. The frontend calls the backend at `http://127.0.0.1:8000`.
+Important: run the backend and frontend at the same time when testing program, workout day, exercise creation, API key settings, and AI import. The frontend calls the backend at `http://127.0.0.1:8000`.
+
+## Security Notes
+
+For local MVP use, the in-app API key setting is session-only and backend-only. The key is not stored in GitHub, not hardcoded in frontend code, and not intentionally kept in browser storage.
+
+For production, this must be replaced with proper user accounts, encrypted secret storage, HTTPS, key rotation/deletion, access control, and usage limits.
 
 ## Documentation
 
@@ -197,4 +231,4 @@ Important: run the backend and frontend at the same time when testing program, w
 
 ## Current Development Rule
 
-Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, exercises, and AI import are now the base. The next slice should be stored YouTube examples or workout session mode. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
+Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, exercises, AI import, and in-app API key settings are now the base. The next slice should be stored YouTube examples or workout session mode. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
