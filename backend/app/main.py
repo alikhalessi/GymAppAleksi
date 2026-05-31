@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models
 from app.database import engine
-from app.routers import health, imports, programs, workout_days, workout_exercises
+from app.routers import health, imports, programs, settings, workout_days, workout_exercises
 
 app = FastAPI(
     title="SetPilot API",
@@ -22,6 +22,7 @@ app.add_middleware(
 models.Base.metadata.create_all(bind=engine)
 
 app.include_router(health.router)
+app.include_router(settings.router)
 app.include_router(programs.router)
 app.include_router(workout_days.router)
 app.include_router(workout_exercises.router)
