@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app import models
 from app.database import engine
@@ -14,6 +16,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def validation_errors_to_text(errors: list[dict]) -> str:
+    lines: list[str] = []
+    for item in errors:
+        location = ".".join(str(part) for part in item.get("loc", [])) or "unknown"
+        message = item.get("msg", "Invalid value")
+        error_type = item.get("type", "validation")
+        lines.append(f"{location}: {message} ({error_type})")
+    return "\n".join(lines)
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={"detail": validation_errors_to_text(exc.errors())},
+    )
+
 
 models.Base.metadata.create_all(bind=engine)
 
