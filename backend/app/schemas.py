@@ -110,6 +110,35 @@ class PlannedSetRead(PlannedSetBase):
     model_config = {"from_attributes": True}
 
 
+class YouTubeVideoBase(BaseModel):
+    youtube_video_id: str = Field(..., min_length=5, max_length=40)
+    title: str = Field(..., min_length=1, max_length=255)
+    channel_name: str = Field(default="", max_length=160)
+    thumbnail_url: str = Field(default="", max_length=500)
+    display_order: int = Field(default=1, ge=1, le=20)
+    approved: bool = True
+
+
+class YouTubeVideoCreate(YouTubeVideoBase):
+    pass
+
+
+class YouTubeVideoUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    channel_name: str | None = Field(default=None, max_length=160)
+    thumbnail_url: str | None = Field(default=None, max_length=500)
+    display_order: int | None = Field(default=None, ge=1, le=20)
+    approved: bool | None = None
+
+
+class YouTubeVideoRead(YouTubeVideoBase):
+    id: int
+    workout_exercise_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class OpenAIKeySetRequest(BaseModel):
     api_key: str = Field(..., min_length=10, max_length=300)
 
