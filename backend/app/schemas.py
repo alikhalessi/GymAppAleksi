@@ -82,6 +82,16 @@ class WorkoutExerciseRead(WorkoutExerciseBase):
     model_config = {"from_attributes": True}
 
 
+class OpenAIKeySetRequest(BaseModel):
+    api_key: str = Field(..., min_length=10, max_length=300)
+
+
+class OpenAIKeyStatus(BaseModel):
+    configured: bool
+    source: str | None = None
+    masked_key: str | None = None
+
+
 class WorkoutPlanImportRequest(BaseModel):
     raw_text: str = Field(..., min_length=10, max_length=12000)
 
