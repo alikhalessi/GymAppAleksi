@@ -279,6 +279,10 @@ class SessionSetRead(BaseModel):
     set_number: int
     planned_reps: str
     planned_weight: float | None
+    exercise_name_snapshot: str
+    workout_day_name_snapshot: str
+    program_name_snapshot: str
+    planned_rest_seconds_snapshot: int | None
     actual_reps: int | None
     actual_weight: float | None
     weight_unit: str

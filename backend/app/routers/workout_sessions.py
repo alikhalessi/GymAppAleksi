@@ -13,7 +13,11 @@ router = APIRouter(prefix="/sessions", tags=["workout sessions"])
 def get_session_or_404(session_id: int, db: Session) -> models.WorkoutSession:
     session = db.scalar(
         select(models.WorkoutSession)
-        .options(selectinload(models.WorkoutSession.session_sets))
+        .options(
+            selectinload(models.WorkoutSession.program),
+            selectinload(models.WorkoutSession.workout_day),
+            selectinload(models.WorkoutSession.session_sets),
+        )
         .where(models.WorkoutSession.id == session_id)
     )
     if session is None:
@@ -128,7 +132,7 @@ def create_session_set(
             detail="Cannot add sets to a finished session",
         )
 
-    get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db)
+    exercise = get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db)
     if session_set_exists(
         session_id,
         session_set_in.workout_exercise_id,
@@ -142,6 +146,10 @@ def create_session_set(
 
     session_set = models.SessionSet(
         workout_session_id=session_id,
+        exercise_name_snapshot=exercise.movement_name,
+        workout_day_name_snapshot=session.workout_day.name if session.workout_day else "",
+        program_name_snapshot=session.program.name if session.program else "",
+        planned_rest_seconds_snapshot=exercise.rest_seconds,
         **session_set_in.model_dump(),
     )
     db.add(session_set)

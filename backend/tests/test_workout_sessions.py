@@ -105,8 +105,18 @@ def test_workout_session_mode_flow() -> None:
     created_set = create_set_response.json()
     assert created_set["workout_session_id"] == session_id
     assert created_set["workout_exercise_id"] == workout_exercise_id
+    assert created_set["exercise_name_snapshot"] == "Bench Press"
+    assert created_set["workout_day_name_snapshot"] == "Upper Session"
+    assert created_set["program_name_snapshot"] == "Session Mode Test"
+    assert created_set["planned_rest_seconds_snapshot"] == 120
     assert created_set["completed"] is False
     session_set_id = int(created_set["id"])
+
+    rename_exercise_response = client.put(
+        f"/programs/{program_id}/workout-days/{workout_day_id}/exercises/{workout_exercise_id}",
+        json={"movement_name": "Incline Bench Press"},
+    )
+    assert rename_exercise_response.status_code == 200
 
     update_set_response = client.put(
         f"/sessions/{session_id}/sets/{session_set_id}",
@@ -139,11 +149,20 @@ def test_workout_session_mode_flow() -> None:
 
     get_response = client.get(f"/sessions/{session_id}")
     assert get_response.status_code == 200
-    assert get_response.json()["id"] == session_id
+    session_detail = get_response.json()
+    assert session_detail["id"] == session_id
+    assert session_detail["session_sets"][0]["exercise_name_snapshot"] == "Bench Press"
+    assert session_detail["session_sets"][0]["workout_day_name_snapshot"] == "Upper Session"
+    assert session_detail["session_sets"][0]["program_name_snapshot"] == "Session Mode Test"
+    assert session_detail["session_sets"][0]["planned_rest_seconds_snapshot"] == 120
 
     recent_response = client.get("/sessions/recent")
     assert recent_response.status_code == 200
-    assert any(session["id"] == session_id for session in recent_response.json())
+    recent_session = next(session for session in recent_response.json() if session["id"] == session_id)
+    assert recent_session["session_sets"][0]["exercise_name_snapshot"] == "Bench Press"
+    assert recent_session["session_sets"][0]["workout_day_name_snapshot"] == "Upper Session"
+    assert recent_session["session_sets"][0]["program_name_snapshot"] == "Session Mode Test"
+    assert recent_session["session_sets"][0]["planned_rest_seconds_snapshot"] == 120
 
 
 def test_duplicate_session_set_creation_is_rejected() -> None:

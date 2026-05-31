@@ -5,7 +5,7 @@ type Program = { id: number; name: string; goal: string; duration_weeks: number;
 type WorkoutDay = { id: number; program_id: number; name: string; day_order: number; created_at: string };
 type WorkoutExercise = { id: number; workout_day_id: number; movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; created_at: string };
 type PlannedSet = { id: number; workout_exercise_id: number; set_number: number; target_reps: string; suggested_weight: number | null; weight_unit: string; note: string; created_at: string };
-type SessionSet = { id: number; workout_session_id: number; workout_exercise_id: number; set_number: number; planned_reps: string; planned_weight: number | null; actual_reps: number | null; actual_weight: number | null; weight_unit: string; difficulty_rating: number | null; completed: boolean; rest_seconds_used: number | null; notes: string; created_at: string };
+type SessionSet = { id: number; workout_session_id: number; workout_exercise_id: number; set_number: number; planned_reps: string; planned_weight: number | null; exercise_name_snapshot: string; workout_day_name_snapshot: string; program_name_snapshot: string; planned_rest_seconds_snapshot: number | null; actual_reps: number | null; actual_weight: number | null; weight_unit: string; difficulty_rating: number | null; completed: boolean; rest_seconds_used: number | null; notes: string; created_at: string };
 type WorkoutSession = { id: number; program_id: number; workout_day_id: number; started_at: string; finished_at: string | null; readiness_score: number | null; notes: string; status: string; session_sets: SessionSet[] };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
@@ -74,6 +74,14 @@ function summarizeSession(session: WorkoutSession) {
     exercisesTouched: exerciseIds.size,
     averageDifficulty,
   };
+}
+
+function getSessionSetExerciseName(set: SessionSet): string {
+  return set.exercise_name_snapshot.trim() || `Exercise #${set.workout_exercise_id}`;
+}
+
+function formatWeight(value: number | null, unit: string): string {
+  return value === null ? "no weight" : `${value} ${unit}`;
 }
 
 function App() {
@@ -428,8 +436,7 @@ function App() {
         </div>
         <p><strong>Notes:</strong> {selectedSessionDetail.notes || "No notes"}</p>
         <h4>Logged sets</h4>
-        {/* TODO: Ask backend for exercise name snapshots or joined exercise names in session set reads. */}
-        {selectedSessionDetail.session_sets.length === 0 ? <p className="empty-state">No sets were logged in this session.</p> : <div className="session-set-list">{selectedSessionDetail.session_sets.map((set) => <article className="program-card" key={set.id}><div><h4>Exercise #{set.workout_exercise_id} - Set {set.set_number}</h4><p>{set.actual_reps ?? "-"} reps - {set.actual_weight ?? "-"} {set.weight_unit} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>}
+        {selectedSessionDetail.session_sets.length === 0 ? <p className="empty-state">No sets were logged in this session.</p> : <div className="session-set-list">{selectedSessionDetail.session_sets.map((set) => <article className="program-card session-set-card" key={set.id}><div><h4>{getSessionSetExerciseName(set)} - Set {set.set_number}</h4><p>Planned: {set.planned_reps} reps - {formatWeight(set.planned_weight, set.weight_unit)}{set.planned_rest_seconds_snapshot !== null ? ` - rest ${set.planned_rest_seconds_snapshot}s` : ""}</p><p>Actual: {set.actual_reps ?? "-"} reps - {formatWeight(set.actual_weight, set.weight_unit)} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>}
       </div> : null}
       <div className="program-grid"><div className="program-list"><h3>Quick Actions</h3><div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Paste / extract plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance current plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Weights & videos</button><button className="secondary-button" type="button" onClick={() => setActiveView("settings")}>API settings</button></div></div><div className="program-list"><h3>Next product milestone</h3><p>Session mode is the real shark-tank milestone: start workout, log actual sets, run rest timer, finish summary, and make next workout smarter.</p></div></div>
     </section>;
@@ -497,10 +504,7 @@ function App() {
           <div className="program-list">
             <h3>Saved sets</h3>
             {completedSets.length === 0 ? <p className="empty-state">No sets logged yet.</p> : null}
-            <div className="program-cards">{completedSets.map((set) => {
-              const exercise = exercises.find((item) => item.id === set.workout_exercise_id);
-              return <article className="program-card" key={set.id}><div><h4>{exercise?.movement_name ?? "Exercise"} · Set {set.set_number}</h4><p>{set.actual_reps ?? "—"} reps · {set.actual_weight ?? "—"} {set.weight_unit} · difficulty {set.difficulty_rating ?? "—"}/10</p><span>{set.notes || "No notes"}</span></div></article>;
-            })}</div>
+            <div className="program-cards">{completedSets.map((set) => <article className="program-card session-set-card" key={set.id}><div><h4>{getSessionSetExerciseName(set)} - Set {set.set_number}</h4><p>Planned: {set.planned_reps} reps - {formatWeight(set.planned_weight, set.weight_unit)}{set.planned_rest_seconds_snapshot !== null ? ` - rest ${set.planned_rest_seconds_snapshot}s` : ""}</p><p>Actual: {set.actual_reps ?? "-"} reps - {formatWeight(set.actual_weight, set.weight_unit)} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>
           </div>
         </div> : null}
       </div>
