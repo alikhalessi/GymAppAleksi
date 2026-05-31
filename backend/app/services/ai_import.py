@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from openai import OpenAI
 
 from app import schemas
+from app.services.runtime_settings import get_openai_api_key
 
 WORKOUT_IMPORT_JSON_SCHEMA: dict[str, Any] = {
     "name": "workout_plan_import_analysis",
@@ -107,11 +108,11 @@ Rules:
 
 
 def analyze_workout_plan_with_ai(raw_text: str) -> schemas.WorkoutPlanImportAnalysis:
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_api_key()
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OPENAI_API_KEY is not configured. Add it to your backend environment to use AI import.",
+            detail="OpenAI API key is not configured. Save it in Settings or set OPENAI_API_KEY in your backend environment.",
         )
 
     client = OpenAI(api_key=api_key)
