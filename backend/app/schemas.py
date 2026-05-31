@@ -203,11 +203,11 @@ class TraineeReadinessProfile(BaseModel):
     sleep_quality: int = Field(..., ge=1, le=10)
     soreness_level: int = Field(..., ge=1, le=10)
     stress_level: int = Field(..., ge=1, le=10)
-    pain_or_limitations: str = Field(default="", max_length=1200)
-    available_equipment: str = Field(default="", max_length=1200)
+    pain_or_limitations: str = Field(default="", max_length=6000)
+    available_equipment: str = Field(default="", max_length=4000)
     session_time_limit_minutes: int | None = Field(default=None, ge=10, le=240)
     difficulty_preference: str = Field(default="moderate", max_length=80)
-    extra_notes: str = Field(default="", max_length=1600)
+    extra_notes: str = Field(default="", max_length=12000)
 
 
 class WorkoutPlanEnhanceRequest(BaseModel):
