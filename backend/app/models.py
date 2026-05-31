@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -51,6 +51,41 @@ class WorkoutDay(Base):
     )
 
     program: Mapped[Program] = relationship(back_populates="workout_days")
+    exercises: Mapped[list["WorkoutExercise"]] = relationship(
+        back_populates="workout_day",
+        cascade="all, delete-orphan",
+    )
 
 
-__all__ = ["Base", "Program", "WorkoutDay"]
+class WorkoutExercise(Base):
+    """Exercise prescription inside a workout day.
+
+    This is the MVP program-entry version of an exercise. A richer exercise
+    library with YouTube video examples can be introduced later without blocking
+    program building now.
+    """
+
+    __tablename__ = "workout_exercises"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_day_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_days.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    movement_name: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    sets: Mapped[int] = mapped_column(Integer, nullable=False)
+    reps: Mapped[str] = mapped_column(String(40), nullable=False)
+    rest_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    exercise_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    workout_day: Mapped[WorkoutDay] = relationship(back_populates="exercises")
+
+
+__all__ = ["Base", "Program", "WorkoutDay", "WorkoutExercise"]
