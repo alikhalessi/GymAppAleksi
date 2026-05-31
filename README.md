@@ -6,7 +6,7 @@ The product focuses on helping users execute planned workouts in the gym: unders
 
 ## Sprint 1 Status
 
-This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first real product slice, **Workout Program CRUD**, has been added.
+This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first two real product slices have been added: **Workout Program CRUD** and **Workout Days under Programs**.
 
 The current scaffold includes:
 
@@ -19,9 +19,15 @@ The current scaffold includes:
 - `GET /programs/{program_id}` read single program endpoint
 - `PUT /programs/{program_id}` update program endpoint
 - `DELETE /programs/{program_id}` delete program endpoint
-- Frontend program creation, editing, deletion, refresh, and listing UI
+- `POST /programs/{program_id}/workout-days` create workout day endpoint
+- `GET /programs/{program_id}/workout-days` list workout days endpoint
+- `GET /programs/{program_id}/workout-days/{workout_day_id}` read single workout day endpoint
+- `PUT /programs/{program_id}/workout-days/{workout_day_id}` update workout day endpoint
+- `DELETE /programs/{program_id}/workout-days/{workout_day_id}` delete workout day endpoint
+- Frontend program creation, editing, deletion, refresh, selection, and listing UI
+- Frontend workout day creation, editing, deletion, refresh, and listing UI for the selected program
 
-Authentication, workout day management, workout session logic, YouTube API integration, payments, trainer dashboard, smartwatch sync, nutrition, and AI-generated workout planning are not included yet.
+Authentication, exercise management, workout session logic, YouTube API integration, payments, trainer dashboard, smartwatch sync, nutrition, and AI-generated workout planning are not included yet.
 
 ## MVP Scope
 
@@ -62,11 +68,13 @@ The local MVP should support:
 |   |   |-- routers
 |   |   |   |-- health.py
 |   |   |   |-- programs.py
+|   |   |   |-- workout_days.py
 |   |   |-- schemas.py
 |   |-- requirements.txt
 |   |-- tests
 |   |   |-- test_health.py
 |   |   |-- test_programs.py
+|   |   |-- test_workout_days.py
 |-- docs
 |   |-- architecture.md
 |   |-- codex-prompts.md
@@ -129,6 +137,20 @@ curl -X POST http://127.0.0.1:8000/programs \
   -d "{\"name\":\"Strength Foundation\",\"goal\":\"Build strength while learning core lifts\",\"duration_weeks\":8}"
 ```
 
+Create a workout day under a program:
+
+```bash
+curl -X POST http://127.0.0.1:8000/programs/1/workout-days \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Upper Body Strength\",\"day_order\":1}"
+```
+
+List workout days for a program:
+
+```bash
+curl http://127.0.0.1:8000/programs/1/workout-days
+```
+
 Run backend tests:
 
 ```bash
@@ -148,7 +170,7 @@ npm run dev
 
 The frontend runs at the local URL printed by Vite, usually `http://localhost:5173`.
 
-Important: run the backend and frontend at the same time when testing program creation. The frontend calls the backend at `http://127.0.0.1:8000`.
+Important: run the backend and frontend at the same time when testing program and workout day creation. The frontend calls the backend at `http://127.0.0.1:8000`.
 
 ## Documentation
 
@@ -162,4 +184,4 @@ Important: run the backend and frontend at the same time when testing program cr
 
 ## Current Development Rule
 
-Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Program CRUD is now the base. The next slice should be workout days attached to programs. Do not add authentication, workout session logic, YouTube API integration, or unrelated product features until their sprint arrives.
+Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs and workout days are now the base. The next slice should be exercises attached to workout days. Do not add authentication, workout session logic, YouTube API integration, or unrelated product features until their sprint arrives.
