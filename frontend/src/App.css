@@ -26,6 +26,12 @@ button {
   border: 0;
 }
 
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .app-shell {
   min-height: 100vh;
   background:
@@ -153,6 +159,13 @@ button {
   text-transform: uppercase;
 }
 
+.global-error {
+  border: 1px solid rgba(138, 33, 25, 0.22);
+  border-radius: 12px;
+  background: #f7e7e5;
+  padding: 1rem;
+}
+
 .program-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
@@ -206,6 +219,11 @@ button {
   justify-content: space-between;
 }
 
+.card-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .primary-button,
 .secondary-button,
 .danger-button,
@@ -240,6 +258,10 @@ button {
   padding: 0.5rem;
 }
 
+.compact-button {
+  padding: 0.55rem 0.7rem;
+}
+
 .program-cards {
   display: grid;
   gap: 0.85rem;
@@ -251,6 +273,11 @@ button {
   justify-content: space-between;
   gap: 1rem;
   padding: 1rem;
+}
+
+.selected-card,
+.workout-day-card {
+  border-color: rgba(31, 82, 56, 0.48);
 }
 
 .program-card p {
