@@ -163,6 +163,11 @@ class WorkoutPlanCommitResponse(BaseModel):
 
 
 class TraineeReadinessProfile(BaseModel):
+    age: int | None = Field(default=None, ge=10, le=100)
+    sex: str = Field(default="", max_length=40)
+    height_cm: float | None = Field(default=None, ge=80, le=250)
+    weight_kg: float | None = Field(default=None, ge=20, le=350)
+    bmi: float | None = Field(default=None, ge=10, le=80)
     training_experience: str = Field(..., max_length=80)
     primary_goal: str = Field(..., max_length=120)
     energy_level: int = Field(..., ge=1, le=10)
