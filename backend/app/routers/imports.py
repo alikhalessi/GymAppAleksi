@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.services.ai_enhance import enhance_workout_plan_with_ai
 from app.services.ai_import import analyze_workout_plan_with_ai
 
 router = APIRouter(prefix="/imports/workout-plan", tags=["workout plan imports"])
@@ -13,6 +14,13 @@ def analyze_workout_plan(
     request: schemas.WorkoutPlanImportRequest,
 ) -> schemas.WorkoutPlanImportAnalysis:
     return analyze_workout_plan_with_ai(request.raw_text)
+
+
+@router.post("/enhance", response_model=schemas.WorkoutPlanEnhancementResponse)
+def enhance_workout_plan(
+    request: schemas.WorkoutPlanEnhanceRequest,
+) -> schemas.WorkoutPlanEnhancementResponse:
+    return enhance_workout_plan_with_ai(request)
 
 
 @router.post(
