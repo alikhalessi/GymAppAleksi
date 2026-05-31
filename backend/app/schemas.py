@@ -231,3 +231,75 @@ class WorkoutPlanEnhancementResponse(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     questions_for_user: list[str] = Field(default_factory=list)
     trainer_review_required: bool
+
+
+class WorkoutSessionCreate(BaseModel):
+    program_id: int = Field(..., ge=1)
+    workout_day_id: int = Field(..., ge=1)
+    readiness_score: int | None = Field(default=None, ge=1, le=10)
+    notes: str = Field(default="", max_length=2000)
+
+
+class WorkoutSessionFinishRequest(BaseModel):
+    readiness_score: int | None = Field(default=None, ge=1, le=10)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class SessionSetCreate(BaseModel):
+    workout_exercise_id: int = Field(..., ge=1)
+    set_number: int = Field(..., ge=1, le=30)
+    planned_reps: str = Field(..., min_length=1, max_length=40)
+    planned_weight: float | None = Field(default=None, ge=0, le=1000)
+    actual_reps: int | None = Field(default=None, ge=0, le=200)
+    actual_weight: float | None = Field(default=None, ge=0, le=1000)
+    weight_unit: str = Field(default="kg", min_length=1, max_length=10)
+    difficulty_rating: int | None = Field(default=None, ge=1, le=10)
+    completed: bool = False
+    rest_seconds_used: int | None = Field(default=None, ge=0, le=3600)
+    notes: str = Field(default="", max_length=2000)
+
+
+class SessionSetUpdate(BaseModel):
+    set_number: int | None = Field(default=None, ge=1, le=30)
+    planned_reps: str | None = Field(default=None, min_length=1, max_length=40)
+    planned_weight: float | None = Field(default=None, ge=0, le=1000)
+    actual_reps: int | None = Field(default=None, ge=0, le=200)
+    actual_weight: float | None = Field(default=None, ge=0, le=1000)
+    weight_unit: str | None = Field(default=None, min_length=1, max_length=10)
+    difficulty_rating: int | None = Field(default=None, ge=1, le=10)
+    completed: bool | None = None
+    rest_seconds_used: int | None = Field(default=None, ge=0, le=3600)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class SessionSetRead(BaseModel):
+    id: int
+    workout_session_id: int
+    workout_exercise_id: int
+    set_number: int
+    planned_reps: str
+    planned_weight: float | None
+    actual_reps: int | None
+    actual_weight: float | None
+    weight_unit: str
+    difficulty_rating: int | None
+    completed: bool
+    rest_seconds_used: int | None
+    notes: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class WorkoutSessionRead(BaseModel):
+    id: int
+    program_id: int
+    workout_day_id: int
+    started_at: datetime
+    finished_at: datetime | None
+    readiness_score: int | None
+    notes: str
+    status: str
+    session_sets: list[SessionSetRead] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}

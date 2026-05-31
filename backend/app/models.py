@@ -21,6 +21,10 @@ class Program(Base):
         back_populates="program",
         cascade="all, delete-orphan",
     )
+    workout_sessions: Mapped[list["WorkoutSession"]] = relationship(
+        back_populates="program",
+        cascade="all, delete-orphan",
+    )
 
 
 class WorkoutDay(Base):
@@ -40,6 +44,10 @@ class WorkoutDay(Base):
 
     program: Mapped[Program] = relationship(back_populates="workout_days")
     exercises: Mapped[list["WorkoutExercise"]] = relationship(
+        back_populates="workout_day",
+        cascade="all, delete-orphan",
+    )
+    workout_sessions: Mapped[list["WorkoutSession"]] = relationship(
         back_populates="workout_day",
         cascade="all, delete-orphan",
     )
@@ -70,6 +78,10 @@ class WorkoutExercise(Base):
         cascade="all, delete-orphan",
     )
     youtube_videos: Mapped[list["YouTubeVideo"]] = relationship(
+        back_populates="workout_exercise",
+        cascade="all, delete-orphan",
+    )
+    session_sets: Mapped[list["SessionSet"]] = relationship(
         back_populates="workout_exercise",
         cascade="all, delete-orphan",
     )
@@ -118,4 +130,75 @@ class YouTubeVideo(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="youtube_videos")
 
 
-__all__ = ["Base", "Program", "WorkoutDay", "WorkoutExercise", "PlannedSet", "YouTubeVideo"]
+class WorkoutSession(Base):
+    """An executed workout session for a selected workout day."""
+
+    __tablename__ = "workout_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    program_id: Mapped[int] = mapped_column(
+        ForeignKey("programs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    workout_day_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_days.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="active")
+
+    program: Mapped[Program] = relationship(back_populates="workout_sessions")
+    workout_day: Mapped[WorkoutDay] = relationship(back_populates="workout_sessions")
+    session_sets: Mapped[list["SessionSet"]] = relationship(
+        back_populates="workout_session",
+        cascade="all, delete-orphan",
+    )
+
+
+class SessionSet(Base):
+    """Actual set performance recorded during a workout session."""
+
+    __tablename__ = "session_sets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_session_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    workout_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_exercises.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    set_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    planned_reps: Mapped[str] = mapped_column(String(40), nullable=False)
+    planned_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    actual_reps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actual_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight_unit: Mapped[str] = mapped_column(String(10), nullable=False, default="kg")
+    difficulty_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    rest_seconds_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    workout_session: Mapped[WorkoutSession] = relationship(back_populates="session_sets")
+    workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="session_sets")
+
+
+__all__ = [
+    "Base",
+    "Program",
+    "WorkoutDay",
+    "WorkoutExercise",
+    "PlannedSet",
+    "YouTubeVideo",
+    "WorkoutSession",
+    "SessionSet",
+]

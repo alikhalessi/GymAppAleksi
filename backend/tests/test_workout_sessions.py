@@ -1,0 +1,116 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+client = TestClient(app)
+
+
+def create_training_plan() -> tuple[int, int, int]:
+    program_response = client.post(
+        "/programs",
+        json={
+            "name": "Session Mode Test",
+            "goal": "Verify workout execution",
+            "duration_weeks": 6,
+        },
+    )
+    assert program_response.status_code == 201
+    program_id = int(program_response.json()["id"])
+
+    day_response = client.post(
+        f"/programs/{program_id}/workout-days",
+        json={"name": "Upper Session", "day_order": 1},
+    )
+    assert day_response.status_code == 201
+    workout_day_id = int(day_response.json()["id"])
+
+    exercise_response = client.post(
+        f"/programs/{program_id}/workout-days/{workout_day_id}/exercises",
+        json={
+            "movement_name": "Bench Press",
+            "sets": 3,
+            "reps": "6-8",
+            "rest_seconds": 120,
+            "notes": "Stay tight.",
+            "exercise_order": 1,
+        },
+    )
+    assert exercise_response.status_code == 201
+    workout_exercise_id = int(exercise_response.json()["id"])
+
+    return program_id, workout_day_id, workout_exercise_id
+
+
+def test_workout_session_mode_flow() -> None:
+    program_id, workout_day_id, workout_exercise_id = create_training_plan()
+
+    start_response = client.post(
+        "/sessions/start",
+        json={
+            "program_id": program_id,
+            "workout_day_id": workout_day_id,
+            "readiness_score": 7,
+            "notes": "Ready enough.",
+        },
+    )
+    assert start_response.status_code == 201
+    started = start_response.json()
+    assert started["program_id"] == program_id
+    assert started["workout_day_id"] == workout_day_id
+    assert started["status"] == "active"
+    assert started["finished_at"] is None
+    session_id = int(started["id"])
+
+    create_set_response = client.post(
+        f"/sessions/{session_id}/sets",
+        json={
+            "workout_exercise_id": workout_exercise_id,
+            "set_number": 1,
+            "planned_reps": "6-8",
+            "planned_weight": 60,
+            "weight_unit": "kg",
+        },
+    )
+    assert create_set_response.status_code == 201
+    created_set = create_set_response.json()
+    assert created_set["workout_session_id"] == session_id
+    assert created_set["workout_exercise_id"] == workout_exercise_id
+    assert created_set["completed"] is False
+    session_set_id = int(created_set["id"])
+
+    update_set_response = client.put(
+        f"/sessions/{session_id}/sets/{session_set_id}",
+        json={
+            "actual_reps": 8,
+            "actual_weight": 62.5,
+            "difficulty_rating": 8,
+            "completed": True,
+            "rest_seconds_used": 130,
+            "notes": "Solid first set.",
+        },
+    )
+    assert update_set_response.status_code == 200
+    updated_set = update_set_response.json()
+    assert updated_set["actual_reps"] == 8
+    assert updated_set["actual_weight"] == 62.5
+    assert updated_set["difficulty_rating"] == 8
+    assert updated_set["completed"] is True
+
+    finish_response = client.post(
+        f"/sessions/{session_id}/finish",
+        json={"notes": "Finished cleanly.", "readiness_score": 7},
+    )
+    assert finish_response.status_code == 200
+    finished = finish_response.json()
+    assert finished["status"] == "completed"
+    assert finished["finished_at"] is not None
+    assert finished["notes"] == "Finished cleanly."
+    assert len(finished["session_sets"]) == 1
+
+    get_response = client.get(f"/sessions/{session_id}")
+    assert get_response.status_code == 200
+    assert get_response.json()["id"] == session_id
+
+    recent_response = client.get("/sessions/recent")
+    assert recent_response.status_code == 200
+    assert any(session["id"] == session_id for session in recent_response.json())

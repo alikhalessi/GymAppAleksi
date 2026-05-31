@@ -5,7 +5,17 @@ from fastapi.responses import JSONResponse
 
 from app import models
 from app.database import engine
-from app.routers import health, imports, planned_sets, programs, settings, workout_days, workout_exercises, youtube_videos
+from app.routers import (
+    health,
+    imports,
+    planned_sets,
+    programs,
+    settings,
+    workout_days,
+    workout_exercises,
+    workout_sessions,
+    youtube_videos,
+)
 
 app = FastAPI(title="SetPilot API", version="0.1.0")
 
@@ -49,3 +59,4 @@ app.include_router(workout_exercises.router)
 app.include_router(planned_sets.router)
 app.include_router(youtube_videos.router)
 app.include_router(imports.router)
+app.include_router(workout_sessions.router)
