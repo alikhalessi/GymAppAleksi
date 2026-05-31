@@ -82,6 +82,34 @@ class WorkoutExerciseRead(WorkoutExerciseBase):
     model_config = {"from_attributes": True}
 
 
+class PlannedSetBase(BaseModel):
+    set_number: int = Field(..., ge=1, le=30)
+    target_reps: str = Field(..., min_length=1, max_length=40)
+    suggested_weight: float | None = Field(default=None, ge=0, le=1000)
+    weight_unit: str = Field(default="kg", min_length=1, max_length=10)
+    note: str = Field(default="", max_length=1000)
+
+
+class PlannedSetCreate(PlannedSetBase):
+    pass
+
+
+class PlannedSetUpdate(BaseModel):
+    set_number: int | None = Field(default=None, ge=1, le=30)
+    target_reps: str | None = Field(default=None, min_length=1, max_length=40)
+    suggested_weight: float | None = Field(default=None, ge=0, le=1000)
+    weight_unit: str | None = Field(default=None, min_length=1, max_length=10)
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class PlannedSetRead(PlannedSetBase):
+    id: int
+    workout_exercise_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class OpenAIKeySetRequest(BaseModel):
     api_key: str = Field(..., min_length=10, max_length=300)
 
