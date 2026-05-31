@@ -80,3 +80,45 @@ class WorkoutExerciseRead(WorkoutExerciseBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WorkoutPlanImportRequest(BaseModel):
+    raw_text: str = Field(..., min_length=10, max_length=12000)
+
+
+class AIParsedExercise(WorkoutExerciseBase):
+    confidence: float = Field(..., ge=0, le=1)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class AIParsedWorkoutDay(WorkoutDayBase):
+    exercises: list[AIParsedExercise] = Field(default_factory=list)
+
+
+class AIParsedProgram(ProgramBase):
+    pass
+
+
+class AIParsedWorkoutPlan(BaseModel):
+    program: AIParsedProgram
+    workout_days: list[AIParsedWorkoutDay]
+
+
+class WorkoutPlanImportAnalysis(BaseModel):
+    parsed_plan: AIParsedWorkoutPlan
+    overall_confidence: float = Field(..., ge=0, le=1)
+    warnings: list[str] = Field(default_factory=list)
+    questions_for_user: list[str] = Field(default_factory=list)
+    trainer_review_required: bool
+
+
+class WorkoutPlanCommitRequest(BaseModel):
+    parsed_plan: AIParsedWorkoutPlan
+    approval_status: str = Field(default="approved_by_user", max_length=60)
+
+
+class WorkoutPlanCommitResponse(BaseModel):
+    program: ProgramRead
+    workout_days: list[WorkoutDayRead]
+    exercises: list[WorkoutExerciseRead]
+    approval_status: str
