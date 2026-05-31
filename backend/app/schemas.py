@@ -28,3 +28,25 @@ class ProgramRead(ProgramBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class WorkoutDayBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    day_order: int = Field(..., ge=1, le=14)
+
+
+class WorkoutDayCreate(WorkoutDayBase):
+    pass
+
+
+class WorkoutDayUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    day_order: int | None = Field(default=None, ge=1, le=14)
+
+
+class WorkoutDayRead(WorkoutDayBase):
+    id: int
+    program_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
