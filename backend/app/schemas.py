@@ -132,3 +132,40 @@ class WorkoutPlanCommitResponse(BaseModel):
     workout_days: list[WorkoutDayRead]
     exercises: list[WorkoutExerciseRead]
     approval_status: str
+
+
+class TraineeReadinessProfile(BaseModel):
+    training_experience: str = Field(..., max_length=80)
+    primary_goal: str = Field(..., max_length=120)
+    energy_level: int = Field(..., ge=1, le=10)
+    sleep_quality: int = Field(..., ge=1, le=10)
+    soreness_level: int = Field(..., ge=1, le=10)
+    stress_level: int = Field(..., ge=1, le=10)
+    pain_or_limitations: str = Field(default="", max_length=1200)
+    available_equipment: str = Field(default="", max_length=1200)
+    session_time_limit_minutes: int | None = Field(default=None, ge=10, le=240)
+    difficulty_preference: str = Field(default="moderate", max_length=80)
+    extra_notes: str = Field(default="", max_length=1600)
+
+
+class WorkoutPlanEnhanceRequest(BaseModel):
+    parsed_plan: AIParsedWorkoutPlan
+    readiness: TraineeReadinessProfile
+
+
+class WorkoutPlanChange(BaseModel):
+    day_name: str
+    exercise_name: str | None = None
+    change_type: str = Field(..., max_length=80)
+    original: str = Field(..., max_length=1000)
+    adjusted: str = Field(..., max_length=1000)
+    reason: str = Field(..., max_length=1200)
+
+
+class WorkoutPlanEnhancementResponse(BaseModel):
+    adjusted_plan: AIParsedWorkoutPlan
+    changes: list[WorkoutPlanChange] = Field(default_factory=list)
+    summary: str = Field(..., max_length=2000)
+    warnings: list[str] = Field(default_factory=list)
+    questions_for_user: list[str] = Field(default_factory=list)
+    trainer_review_required: bool
