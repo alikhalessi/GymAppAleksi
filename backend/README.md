@@ -29,19 +29,3 @@ Expected response:
 ```json
 {"status":"ok"}
 ```
-
-## Program Endpoints
-
-- `POST /programs`
-- `GET /programs`
-- `GET /programs/{program_id}`
-- `PUT /programs/{program_id}`
-- `DELETE /programs/{program_id}`
-
-Program fields:
-
-- `id`
-- `name`
-- `goal`
-- `duration_weeks`
-- `created_at`

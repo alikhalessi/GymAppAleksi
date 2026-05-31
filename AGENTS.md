@@ -10,9 +10,9 @@ Target users are beginner-to-intermediate gym users who already have or want a s
 
 ## Current Phase
 
-This repository is in Sprint 0 unless the sprint documentation has been explicitly updated.
+This repository is in Sprint 1 preparation unless the sprint documentation has been explicitly updated.
 
-Sprint 0 is documentation and planning only. Do not build production app features during Sprint 0.
+Sprint 1 preparation is for the initial full-stack scaffold only. Do not build production app features during Sprint 1 preparation.
 
 ## Technical Direction
 
@@ -73,4 +73,3 @@ Out of scope until explicitly planned:
 - Social features
 - Marketplace features
 - Advanced analytics
-

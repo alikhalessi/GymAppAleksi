@@ -14,7 +14,6 @@ The current scaffold includes:
 - FastAPI backend package
 - SQLite development database configuration
 - `GET /health` backend endpoint
-- Program CRUD with `POST`, `GET`, `PUT`, and `DELETE` endpoints under `/programs`
 
 Authentication, workout session logic, YouTube API integration, payments, trainer dashboard, smartwatch sync, nutrition, and AI-generated workout planning are not included.
 
@@ -56,12 +55,10 @@ The local MVP should support:
 |   |   |-- models.py
 |   |   |-- routers
 |   |   |   |-- health.py
-|   |   |   |-- programs.py
 |   |   |-- schemas.py
 |   |-- requirements.txt
 |   |-- tests
 |   |   |-- test_health.py
-|   |   |-- test_programs.py
 |-- docs
 |   |-- architecture.md
 |   |-- codex-prompts.md
@@ -110,14 +107,6 @@ Expected response:
 {"status":"ok"}
 ```
 
-Program endpoints:
-
-- `POST /programs`
-- `GET /programs`
-- `GET /programs/{program_id}`
-- `PUT /programs/{program_id}`
-- `DELETE /programs/{program_id}`
-
 Run backend tests:
 
 ```bash
@@ -137,8 +126,6 @@ npm run dev
 
 The frontend runs at the local URL printed by Vite, usually `http://localhost:5173`.
 
-By default the frontend calls the backend at `http://127.0.0.1:8000`. To use a different backend URL, set `VITE_API_BASE_URL` before starting Vite.
-
 ## Documentation
 
 - [Product vision](docs/product-vision.md)
@@ -151,4 +138,4 @@ By default the frontend calls the backend at `http://127.0.0.1:8000`. To use a d
 
 ## Current Development Rule
 
-Keep changes small and understandable. During Sprint 1 Feature 1, focus on workout program CRUD only. Do not add workout days, exercises, authentication, workout session logic, YouTube API integration, or unrelated product features.
+Keep changes small and understandable. During Sprint 1 preparation, focus on scaffold quality and local startup only. Do not add authentication, workout session logic, YouTube API integration, or unrelated product features.
