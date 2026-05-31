@@ -6,7 +6,7 @@ The product focuses on helping users execute planned workouts in the gym: unders
 
 ## Sprint 1 Status
 
-This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first three real product slices have been added: **Workout Program CRUD**, **Workout Days under Programs**, and **Exercises under Workout Days**.
+This repository is now in Sprint 1 feature development. The initial scaffold is complete and the first four real product slices have been added: **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, and **AI Workout Plan Import**.
 
 The current scaffold includes:
 
@@ -14,26 +14,17 @@ The current scaffold includes:
 - FastAPI backend package
 - SQLite development database configuration
 - `GET /health` backend endpoint
-- `POST /programs` create program endpoint
-- `GET /programs` list programs endpoint
-- `GET /programs/{program_id}` read single program endpoint
-- `PUT /programs/{program_id}` update program endpoint
-- `DELETE /programs/{program_id}` delete program endpoint
-- `POST /programs/{program_id}/workout-days` create workout day endpoint
-- `GET /programs/{program_id}/workout-days` list workout days endpoint
-- `GET /programs/{program_id}/workout-days/{workout_day_id}` read single workout day endpoint
-- `PUT /programs/{program_id}/workout-days/{workout_day_id}` update workout day endpoint
-- `DELETE /programs/{program_id}/workout-days/{workout_day_id}` delete workout day endpoint
-- `POST /programs/{program_id}/workout-days/{workout_day_id}/exercises` create exercise endpoint
-- `GET /programs/{program_id}/workout-days/{workout_day_id}/exercises` list exercises endpoint
-- `GET /programs/{program_id}/workout-days/{workout_day_id}/exercises/{exercise_id}` read single exercise endpoint
-- `PUT /programs/{program_id}/workout-days/{workout_day_id}/exercises/{exercise_id}` update exercise endpoint
-- `DELETE /programs/{program_id}/workout-days/{workout_day_id}/exercises/{exercise_id}` delete exercise endpoint
+- Program CRUD endpoints under `/programs`
+- Workout day CRUD endpoints under `/programs/{program_id}/workout-days`
+- Exercise CRUD endpoints under `/programs/{program_id}/workout-days/{workout_day_id}/exercises`
+- `POST /imports/workout-plan/analyze` AI analysis endpoint
+- `POST /imports/workout-plan/save` reviewed import save endpoint
 - Frontend program creation, editing, deletion, refresh, selection, and listing UI
 - Frontend workout day creation, editing, deletion, refresh, selection, and listing UI for the selected program
 - Frontend exercise creation, editing, deletion, refresh, and listing UI for the selected workout day
+- Frontend AI import panel with plain-text paste, AI preview, warnings, trainer-review flag, and save flow
 
-Authentication, workout session logic, YouTube API integration, payments, trainer dashboard, smartwatch sync, nutrition, and AI-generated workout planning are not included yet.
+Authentication, workout session logic, YouTube API integration, payments, trainer dashboard, smartwatch sync, nutrition, and AI-generated workout optimization are not included yet.
 
 ## MVP Scope
 
@@ -42,13 +33,16 @@ The local MVP should support:
 1. Create workout programs.
 2. Add workout days.
 3. Add exercises with movement name, sets, reps, rest seconds, and notes.
-4. Show up to 5 stored YouTube examples per exercise.
-5. Start a workout session.
-6. Complete sets.
-7. Use workout timer and rest timer.
-8. Save weight, reps, and difficulty rating per set.
-9. Show a post-session summary.
-10. Show basic progress analysis.
+4. Paste a plain-text workout plan and use AI to structure it.
+5. Review AI import warnings, questions, and trainer-review recommendation.
+6. Save the reviewed AI import into the program/day/exercise tables.
+7. Show up to 5 stored YouTube examples per exercise.
+8. Start a workout session.
+9. Complete sets.
+10. Use workout timer and rest timer.
+11. Save weight, reps, and difficulty rating per set.
+12. Show a post-session summary.
+13. Show basic progress analysis.
 
 ## Tech Direction
 
@@ -56,6 +50,7 @@ The local MVP should support:
 - Backend: FastAPI
 - Local MVP database: SQLite with SQLAlchemy
 - Future production database: PostgreSQL
+- AI import: OpenAI API with Structured Outputs style JSON schema
 - Charts later: Recharts
 - Authentication later: not included in Sprint 1
 
@@ -73,13 +68,18 @@ The local MVP should support:
 |   |   |-- models.py
 |   |   |-- routers
 |   |   |   |-- health.py
+|   |   |   |-- imports.py
 |   |   |   |-- programs.py
 |   |   |   |-- workout_days.py
 |   |   |   |-- workout_exercises.py
 |   |   |-- schemas.py
+|   |   |-- services
+|   |   |   |-- __init__.py
+|   |   |   |-- ai_import.py
 |   |-- requirements.txt
 |   |-- tests
 |   |   |-- test_health.py
+|   |   |-- test_imports.py
 |   |   |-- test_programs.py
 |   |   |-- test_workout_days.py
 |   |   |-- test_workout_exercises.py
@@ -114,6 +114,23 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+```
+
+For AI import, set an OpenAI API key in the same terminal before starting the backend:
+
+```powershell
+$env:OPENAI_API_KEY="your_api_key_here"
+```
+
+Optional model override:
+
+```powershell
+$env:OPENAI_WORKOUT_IMPORT_MODEL="gpt-4.1-mini"
+```
+
+Start backend:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
@@ -131,46 +148,20 @@ Expected response:
 {"status":"ok"}
 ```
 
-Program endpoints:
+Analyze a plain-text workout plan:
 
 ```bash
-curl http://127.0.0.1:8000/programs
-```
-
-Create a program:
-
-```bash
-curl -X POST http://127.0.0.1:8000/programs \
+curl -X POST http://127.0.0.1:8000/imports/workout-plan/analyze \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"Strength Foundation\",\"goal\":\"Build strength while learning core lifts\",\"duration_weeks\":8}"
+  -d "{\"raw_text\":\"Day 1 Upper Body\\nBench Press 4x8 rest 120 seconds\"}"
 ```
 
-Create a workout day under a program:
+Save a reviewed AI import:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/programs/1/workout-days \
+curl -X POST http://127.0.0.1:8000/imports/workout-plan/save \
   -H "Content-Type: application/json" \
-  -d "{\"name\":\"Upper Body Strength\",\"day_order\":1}"
-```
-
-List workout days for a program:
-
-```bash
-curl http://127.0.0.1:8000/programs/1/workout-days
-```
-
-Create an exercise under a workout day:
-
-```bash
-curl -X POST http://127.0.0.1:8000/programs/1/workout-days/1/exercises \
-  -H "Content-Type: application/json" \
-  -d "{\"movement_name\":\"Bench Press\",\"sets\":4,\"reps\":\"6-8\",\"rest_seconds\":120,\"notes\":\"Keep shoulder blades tight.\",\"exercise_order\":1}"
-```
-
-List exercises for a workout day:
-
-```bash
-curl http://127.0.0.1:8000/programs/1/workout-days/1/exercises
+  -d "{\"parsed_plan\":{\"program\":{\"name\":\"Imported Plan\",\"goal\":\"Imported from text\",\"duration_weeks\":8},\"workout_days\":[{\"name\":\"Upper Body\",\"day_order\":1,\"exercises\":[{\"movement_name\":\"Bench Press\",\"sets\":4,\"reps\":\"8\",\"rest_seconds\":120,\"notes\":\"\",\"exercise_order\":1,\"confidence\":0.9,\"warnings\":[]}]}]},\"approval_status\":\"approved_by_user\"}"
 ```
 
 Run backend tests:
@@ -192,7 +183,7 @@ npm run dev
 
 The frontend runs at the local URL printed by Vite, usually `http://localhost:5173`.
 
-Important: run the backend and frontend at the same time when testing program, workout day, and exercise creation. The frontend calls the backend at `http://127.0.0.1:8000`.
+Important: run the backend and frontend at the same time when testing program, workout day, exercise creation, and AI import. The frontend calls the backend at `http://127.0.0.1:8000`.
 
 ## Documentation
 
@@ -206,4 +197,4 @@ Important: run the backend and frontend at the same time when testing program, w
 
 ## Current Development Rule
 
-Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, and exercises are now the base. The next slice should be workout session mode or stored YouTube examples, depending on product priority. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
+Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, exercises, and AI import are now the base. The next slice should be stored YouTube examples or workout session mode. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
