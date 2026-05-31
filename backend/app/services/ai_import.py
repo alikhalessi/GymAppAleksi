@@ -118,19 +118,19 @@ def analyze_workout_plan_with_ai(raw_text: str) -> schemas.WorkoutPlanImportAnal
     client = OpenAI(api_key=api_key)
 
     try:
-        response = client.responses.create(
-            model=os.getenv("OPENAI_WORKOUT_IMPORT_MODEL", "gpt-4.1-mini"),
-            input=[
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_WORKOUT_IMPORT_MODEL", "gpt-4o-mini"),
+            messages=[
                 {"role": "system", "content": SYSTEM_INSTRUCTIONS},
                 {"role": "user", "content": raw_text},
             ],
-            text={
-                "format": {
-                    "type": "json_schema",
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
                     "name": WORKOUT_IMPORT_JSON_SCHEMA["name"],
                     "schema": WORKOUT_IMPORT_JSON_SCHEMA["schema"],
                     "strict": True,
-                }
+                },
             },
         )
     except Exception as exc:
@@ -140,7 +140,9 @@ def analyze_workout_plan_with_ai(raw_text: str) -> schemas.WorkoutPlanImportAnal
         ) from exc
 
     try:
-        raw_output = response.output_text
+        raw_output = response.choices[0].message.content
+        if not raw_output:
+            raise ValueError("empty model response")
         parsed = json.loads(raw_output)
         return schemas.WorkoutPlanImportAnalysis.model_validate(parsed)
     except Exception as exc:
