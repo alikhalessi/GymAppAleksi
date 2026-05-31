@@ -282,7 +282,8 @@ select:disabled {
 }
 
 .session-summary-panel,
-.rest-placeholder {
+.rest-placeholder,
+.rest-timer-panel {
   border: 1px solid rgba(115, 242, 156, 0.22);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.08);
@@ -297,15 +298,56 @@ select:disabled {
 
 .session-summary-panel h3,
 .session-summary-panel p,
-.rest-placeholder p {
+.rest-placeholder p,
+.rest-timer-panel p {
   margin: 0;
 }
 
-.rest-placeholder {
+.rest-placeholder,
+.rest-timer-panel {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.timer-value {
+  display: block;
+  color: #f5fff7;
+  font-size: 2.4rem;
+  line-height: 1.1;
+  margin: 0.25rem 0;
+}
+
+.timer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.session-detail-panel {
+  margin-bottom: 1.35rem;
+}
+
+.session-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.session-detail-grid p {
+  border: 1px solid rgba(19, 33, 25, 0.08);
+  border-radius: 14px;
+  background: #fbfdfa;
+  margin: 0;
+  padding: 0.8rem;
+}
+
+.session-set-list {
+  display: grid;
+  gap: 0.85rem;
 }
 
 .success-message {
@@ -553,6 +595,10 @@ select:disabled {
   .program-grid {
     grid-template-columns: 1fr;
   }
+
+  .session-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 520px) {
@@ -571,6 +617,16 @@ select:disabled {
 
   .actions {
     position: static;
+  }
+
+  .rest-timer-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .timer-actions,
+  .session-detail-grid {
+    grid-template-columns: 1fr;
   }
 
   .primary-button,

@@ -63,6 +63,19 @@ function extractYouTubeVideoId(input: string): string {
   }
 }
 
+function summarizeSession(session: WorkoutSession) {
+  const completedSets = session.session_sets.filter((set) => set.completed);
+  const exerciseIds = new Set(completedSets.map((set) => set.workout_exercise_id));
+  const ratings = completedSets.map((set) => set.difficulty_rating).filter((rating): rating is number => rating !== null);
+  const averageDifficulty = ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
+  return {
+    totalSets: session.session_sets.length,
+    completedSets: completedSets.length,
+    exercisesTouched: exerciseIds.size,
+    averageDifficulty,
+  };
+}
+
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -94,9 +107,12 @@ function App() {
   const [enhancement, setEnhancement] = useState<EnhancementResponse | null>(null);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
+  const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
   const [sessionFinishedMessage, setSessionFinishedMessage] = useState<string | null>(null);
   const [restSuggestionSeconds, setRestSuggestionSeconds] = useState<number | null>(null);
-  const [restDoneMessage, setRestDoneMessage] = useState<string | null>(null);
+  const [restTimerSeconds, setRestTimerSeconds] = useState<number | null>(null);
+  const [restTimerRunning, setRestTimerRunning] = useState(false);
+  const [restTimerMessage, setRestTimerMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,11 +130,7 @@ function App() {
   const totalVideos = youtubeVideos.length;
   const activeSessionSummary = useMemo(() => {
     if (!activeSession || activeSession.status !== "completed") return null;
-    const completedSets = activeSession.session_sets.filter((set) => set.completed);
-    const exerciseIds = new Set(completedSets.map((set) => set.workout_exercise_id));
-    const ratings = completedSets.map((set) => set.difficulty_rating).filter((rating): rating is number => rating !== null);
-    const averageDifficulty = ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
-    return { completedSets: completedSets.length, exercisesTouched: exerciseIds.size, averageDifficulty };
+    return summarizeSession(activeSession);
   }, [activeSession]);
 
   async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -147,6 +159,12 @@ function App() {
   async function loadPlannedSets(exerciseId: number) { setPlannedSets(await api<PlannedSet[]>(`/exercises/${exerciseId}/planned-sets`)); }
   async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
   async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
+  async function loadSessionDetail(sessionId: number) {
+    setError(null); setLoading("Loading session detail");
+    try { setSelectedSessionDetail(await api<WorkoutSession>(`/sessions/${sessionId}`)); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not load session detail."); }
+    finally { setLoading(null); }
+  }
 
   useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); }, []);
   useEffect(() => {
@@ -163,6 +181,20 @@ function App() {
     void loadYouTubeVideos(selectedExerciseId).catch((e) => setError(e.message));
   }, [selectedExerciseId]);
   useEffect(() => { setReadiness((current) => ({ ...current, bmi: computedBmi })); }, [computedBmi]);
+  useEffect(() => {
+    if (!restTimerRunning || restTimerSeconds === null) return;
+    if (restTimerSeconds <= 0) {
+      setRestTimerRunning(false);
+      setRestTimerMessage("Rest complete. Next set is ready.");
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setRestTimerSeconds((current) => current === null ? current : Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [restTimerRunning, restTimerSeconds]);
 
   async function saveOpenAIKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setLoading("Saving key");
@@ -240,7 +272,7 @@ function App() {
 
   async function startWorkoutSession() {
     if (selectedProgramId === null || selectedWorkoutDayId === null) return;
-    setError(null); setSessionFinishedMessage(null); setRestSuggestionSeconds(null); setRestDoneMessage(null); setLoading("Starting session");
+    setError(null); setSessionFinishedMessage(null); setRestSuggestionSeconds(null); setRestTimerSeconds(null); setRestTimerRunning(false); setRestTimerMessage(null); setLoading("Starting session");
     try {
       const session = await api<WorkoutSession>("/sessions/start", {
         method: "POST",
@@ -297,7 +329,9 @@ function App() {
       });
       setSessionSetForm({ set_number: String(setNumber + 1), actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" });
       setRestSuggestionSeconds(selectedExercise.rest_seconds);
-      setRestDoneMessage(null);
+      setRestTimerSeconds(selectedExercise.rest_seconds);
+      setRestTimerRunning(false);
+      setRestTimerMessage(null);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not save set."); }
     finally { setLoading(null); }
@@ -318,7 +352,9 @@ function App() {
       setActiveSession(finished);
       setSessionFinishedMessage(`Session finished. ${finished.session_sets.filter((set) => set.completed).length} sets saved.`);
       setRestSuggestionSeconds(null);
-      setRestDoneMessage(null);
+      setRestTimerSeconds(null);
+      setRestTimerRunning(false);
+      setRestTimerMessage(null);
       await loadRecentSessions();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not finish session."); }
@@ -331,11 +367,38 @@ function App() {
   async function deletePlannedSet(id: number) { if (selectedExerciseId !== null) { await api(`/exercises/${selectedExerciseId}/planned-sets/${id}`, { method: "DELETE" }); await loadPlannedSets(selectedExerciseId); } }
   async function deleteYouTubeVideo(id: number) { if (selectedExerciseId !== null) { await api(`/exercises/${selectedExerciseId}/youtube-videos/${id}`, { method: "DELETE" }); await loadYouTubeVideos(selectedExerciseId); } }
 
+  function startRestTimer() {
+    if (restSuggestionSeconds === null) return;
+    setRestTimerSeconds((current) => current === null || current <= 0 ? restSuggestionSeconds : current);
+    setRestTimerMessage(null);
+    setRestTimerRunning(true);
+  }
+
+  function pauseRestTimer() {
+    setRestTimerRunning(false);
+  }
+
+  function resetRestTimer() {
+    if (restSuggestionSeconds === null) return;
+    setRestTimerSeconds(restSuggestionSeconds);
+    setRestTimerRunning(false);
+    setRestTimerMessage(null);
+  }
+
+  function markRestDone() {
+    setRestSuggestionSeconds(null);
+    setRestTimerSeconds(null);
+    setRestTimerRunning(false);
+    setRestTimerMessage("Rest marked done.");
+  }
+
   function updateReadiness<K extends keyof ReadinessProfile>(key: K, value: ReadinessProfile[K]) { setReadiness((current) => ({ ...current, [key]: value })); }
   function selectExercise(exercise: WorkoutExercise) { setSelectedExerciseId(exercise.id); setPlannedSetForm({ set_number: "1", target_reps: exercise.reps, suggested_weight: "", weight_unit: "kg", note: "" }); setSessionSetForm({ set_number: "1", actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: "1" }); }
   function renderPlan(plan: AIParsedPlan) { return <div className="program-cards">{plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.name}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.notes ? `— ${ex.notes}` : ""}</p>)}</div></article>)}</div>; }
 
   function renderDashboard() {
+    const selectedDetailSummary = selectedSessionDetail ? summarizeSession(selectedSessionDetail) : null;
+
     return <section className="program-workspace cockpit-view">
       <div className="section-heading"><div><p className="eyebrow">Mission control</p><h2>Today’s Training Cockpit</h2></div><p>The app now starts where the user starts: what am I doing today, how ready am I, and what is the next useful action?</p></div>
       <div className="cockpit-grid">
@@ -348,9 +411,26 @@ function App() {
         <div className="list-header"><h3>Recent Sessions</h3><button className="secondary-button compact-button" type="button" onClick={() => void loadRecentSessions()}>Refresh</button></div>
         {recentSessions.length === 0 ? <p className="empty-state">No sessions yet. Start one from the Training cockpit and completed sets will show here.</p> : <div className="program-cards">{recentSessions.slice(0, 5).map((session) => {
           const completedCount = session.session_sets.filter((set) => set.completed).length;
-          return <article className="program-card" key={session.id}><div><h4>Session #{session.id}</h4><p>Status: {session.status} · completed sets: {completedCount}</p><span>Started: {new Date(session.started_at).toLocaleString()}</span>{session.finished_at ? <span>Finished: {new Date(session.finished_at).toLocaleString()}</span> : <span>Finished: not yet</span>}</div></article>;
+          return <article className="program-card" key={session.id}><div><h4>Session #{session.id}</h4><p>Status: {session.status} · completed sets: {completedCount}</p><span>Started: {new Date(session.started_at).toLocaleString()}</span>{session.finished_at ? <span>Finished: {new Date(session.finished_at).toLocaleString()}</span> : <span>Finished: not yet</span>}</div><div className="card-actions"><button className="secondary-button compact-button" type="button" onClick={() => void loadSessionDetail(session.id)}>View details</button></div></article>;
         })}</div>}
       </div>
+      {selectedSessionDetail && selectedDetailSummary ? <div className="program-list session-detail-panel">
+        <div className="list-header"><h3>Session #{selectedSessionDetail.id} Details</h3><button className="secondary-button compact-button" type="button" onClick={() => setSelectedSessionDetail(null)}>Close</button></div>
+        <div className="session-detail-grid">
+          <p><strong>Status:</strong> {selectedSessionDetail.status}</p>
+          <p><strong>Started:</strong> {new Date(selectedSessionDetail.started_at).toLocaleString()}</p>
+          <p><strong>Finished:</strong> {selectedSessionDetail.finished_at ? new Date(selectedSessionDetail.finished_at).toLocaleString() : "not yet"}</p>
+          <p><strong>Readiness:</strong> {selectedSessionDetail.readiness_score ?? "not recorded"}</p>
+          <p><strong>Total sets:</strong> {selectedDetailSummary.totalSets}</p>
+          <p><strong>Completed sets:</strong> {selectedDetailSummary.completedSets}</p>
+          <p><strong>Exercises touched:</strong> {selectedDetailSummary.exercisesTouched}</p>
+          <p><strong>Average difficulty:</strong> {selectedDetailSummary.averageDifficulty === null ? "not rated" : `${selectedDetailSummary.averageDifficulty.toFixed(1)}/10`}</p>
+        </div>
+        <p><strong>Notes:</strong> {selectedSessionDetail.notes || "No notes"}</p>
+        <h4>Logged sets</h4>
+        {/* TODO: Ask backend for exercise name snapshots or joined exercise names in session set reads. */}
+        {selectedSessionDetail.session_sets.length === 0 ? <p className="empty-state">No sets were logged in this session.</p> : <div className="session-set-list">{selectedSessionDetail.session_sets.map((set) => <article className="program-card" key={set.id}><div><h4>Exercise #{set.workout_exercise_id} - Set {set.set_number}</h4><p>{set.actual_reps ?? "-"} reps - {set.actual_weight ?? "-"} {set.weight_unit} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>}
+      </div> : null}
       <div className="program-grid"><div className="program-list"><h3>Quick Actions</h3><div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Paste / extract plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance current plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Weights & videos</button><button className="secondary-button" type="button" onClick={() => setActiveView("settings")}>API settings</button></div></div><div className="program-list"><h3>Next product milestone</h3><p>Session mode is the real shark-tank milestone: start workout, log actual sets, run rest timer, finish summary, and make next workout smarter.</p></div></div>
     </section>;
   }
@@ -386,7 +466,8 @@ function App() {
           <div>
             <p className="eyebrow">Session mode v1</p>
             <h3>{selectedWorkoutDay ? selectedWorkoutDay.name : "No workout day selected"}</h3>
-            <p>{sessionIsActive ? `Session #${activeSession.id} active · ${completedSets.length} sets saved` : "Start a workout from the selected day, then log actual set performance."}</p>
+            <p>{activeSession ? `Session #${activeSession.id} - ${activeSession.status} - ${completedSets.length} completed sets logged` : "Start a workout from the selected day, then log actual set performance."}</p>
+            <p>Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none selected"}</p>
           </div>
           <div className="card-actions">
             <button className="primary-button" disabled={selectedProgramId === null || selectedWorkoutDayId === null || sessionIsActive || loading !== null} type="button" onClick={() => void startWorkoutSession()}>Start Session</button>
@@ -394,7 +475,7 @@ function App() {
           </div>
         </div>
         {sessionFinishedMessage ? <p className="success-message">{sessionFinishedMessage}</p> : null}
-        {activeSessionSummary ? <div className="session-summary-panel"><h3>Session summary</h3><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
+        {activeSessionSummary ? <div className="session-summary-panel"><h3>Session summary</h3><p>Total sets: {activeSessionSummary.totalSets}</p><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
         {sessionIsActive ? <div className="program-grid session-grid">
           <form className="program-form" onSubmit={saveSessionSet}>
             <h3>Log set</h3>
@@ -410,8 +491,8 @@ function App() {
             <p className="muted">Target: {selectedPlannedSet?.target_reps ?? selectedExercise?.reps ?? "none"} reps · {selectedPlannedSet?.suggested_weight ?? "no planned weight"} {selectedPlannedSet?.weight_unit ?? "kg"}</p>
             <label>Set notes<textarea value={sessionSetForm.notes} onChange={(e) => setSessionSetForm({ ...sessionSetForm, notes: e.target.value })} /></label>
             <button className="primary-button" disabled={!selectedExercise || loading !== null} type="submit">Save set</button>
-            {restSuggestionSeconds !== null ? <div className="rest-placeholder"><p>Suggested rest: {restSuggestionSeconds} seconds</p><button className="secondary-button compact-button" type="button" onClick={() => { setRestSuggestionSeconds(null); setRestDoneMessage("Rest marked done."); }}>Mark rest done</button></div> : null}
-            {restDoneMessage ? <p className="muted">{restDoneMessage}</p> : null}
+            {restSuggestionSeconds !== null ? <div className="rest-timer-panel"><div><p>Suggested rest: {restSuggestionSeconds} seconds</p><strong className="timer-value">{restTimerSeconds ?? restSuggestionSeconds}s</strong><p className="muted">{restTimerRunning ? "Rest timer running." : "Timer is ready."}</p></div><div className="timer-actions"><button className="secondary-button compact-button" type="button" onClick={startRestTimer}>Start Rest</button><button className="secondary-button compact-button" disabled={!restTimerRunning} type="button" onClick={pauseRestTimer}>Pause</button><button className="secondary-button compact-button" type="button" onClick={resetRestTimer}>Reset</button><button className="primary-button compact-button" type="button" onClick={markRestDone}>Mark rest done</button></div></div> : null}
+            {restTimerMessage ? <p className="muted">{restTimerMessage}</p> : null}
           </form>
           <div className="program-list">
             <h3>Saved sets</h3>
