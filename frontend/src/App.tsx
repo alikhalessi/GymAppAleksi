@@ -145,6 +145,20 @@ function App() {
   const selectedWorkoutDay = useMemo(() => workoutDays.find((d) => d.id === selectedWorkoutDayId) ?? null, [workoutDays, selectedWorkoutDayId]);
   const selectedExercise = useMemo(() => exercises.find((e) => e.id === selectedExerciseId) ?? null, [exercises, selectedExerciseId]);
   const selectedPlannedSet = useMemo(() => plannedSets.find((set) => set.set_number === Number(sessionSetForm.set_number)) ?? null, [plannedSets, sessionSetForm.set_number]);
+  const selectedExerciseLoggedSets = useMemo(() => {
+    if (!activeSession || selectedExerciseId === null) return [];
+    return activeSession.session_sets
+      .filter((set) => set.workout_exercise_id === selectedExerciseId)
+      .sort((a, b) => a.set_number - b.set_number);
+  }, [activeSession, selectedExerciseId]);
+  const nextSetNumber = selectedExercise ? selectedExerciseLoggedSets.length + 1 : 1;
+  const nextPlannedSet = useMemo(() => plannedSets.find((set) => set.set_number === nextSetNumber) ?? null, [plannedSets, nextSetNumber]);
+  const nextExercise = useMemo(() => {
+    if (!selectedExercise) return null;
+    const ordered = [...exercises].sort((a, b) => a.exercise_order - b.exercise_order || a.id - b.id);
+    const currentIndex = ordered.findIndex((exercise) => exercise.id === selectedExercise.id);
+    return currentIndex >= 0 ? ordered[currentIndex + 1] ?? null : null;
+  }, [exercises, selectedExercise]);
   const computedBmi = useMemo(() => {
     if (!readiness.height_cm || !readiness.weight_kg) return null;
     const meters = readiness.height_cm / 100;
@@ -260,6 +274,16 @@ function App() {
 
     return () => window.clearInterval(timerId);
   }, [restTimerRunning, restTimerSeconds]);
+  useEffect(() => {
+    if (!selectedExercise) return;
+    setSessionSetForm({
+      set_number: String(nextSetNumber),
+      actual_reps: "",
+      actual_weight: "",
+      difficulty_rating: "",
+      notes: "",
+    });
+  }, [selectedExercise, nextSetNumber]);
 
   async function saveOpenAIKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setLoading("Saving key");
@@ -554,6 +578,13 @@ function App() {
   function renderTrainingViewV2() {
     const sessionIsActive = activeSession?.status === "active";
     const completedSets = activeSession?.session_sets.filter((set) => set.completed) ?? [];
+    const totalLoggedSets = activeSession?.session_sets.length ?? 0;
+    const currentExerciseLoggedCount = selectedExerciseLoggedSets.length;
+    const nextWeightText = nextPlannedSet?.suggested_weight !== null && nextPlannedSet?.suggested_weight !== undefined
+      ? `${nextPlannedSet.suggested_weight} ${nextPlannedSet.weight_unit}`
+      : "No planned weight yet";
+    const orderedLoggedSets = [...(activeSession?.session_sets ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const canLogSet = sessionIsActive && selectedExercise !== null;
 
     return <section className="program-workspace">
       <div className="section-heading">
@@ -561,47 +592,47 @@ function App() {
         <p>{selectedProgram ? `Selected program: ${selectedProgram.name}` : "Select a program first."}</p>
       </div>
 
-      <div className="session-panel">
+      <div className="active-session-cockpit">
         <div className="session-panel-header">
           <div>
-            <p className="eyebrow">Session mode v1</p>
-            <h3>{selectedWorkoutDay ? selectedWorkoutDay.name : "No workout day selected"}</h3>
-            <p>{activeSession ? `Session #${activeSession.id} - ${activeSession.status} - ${completedSets.length} completed sets logged` : "Start a workout from the selected day, then log actual set performance."}</p>
-            <p>Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none selected"}</p>
+            <p className="eyebrow">Active session cockpit</p>
+            <h3>{activeSession ? `Session #${activeSession.id}` : "No active session"}</h3>
+            <p>{activeSession ? "Follow the selected exercise, log actual work, then rest." : "Start a workout from the selected day when you are ready to train."}</p>
           </div>
           <div className="card-actions">
-            <button className="primary-button" disabled={selectedProgramId === null || selectedWorkoutDayId === null || sessionIsActive || loading !== null} type="button" onClick={() => void startWorkoutSession()}>Start Session</button>
+            <button className="primary-button" disabled={selectedProgramId === null || selectedWorkoutDayId === null || sessionIsActive || loading !== null} type="button" onClick={() => void startWorkoutSession()}>{activeSession?.status === "completed" ? "Start New Session" : "Start Session"}</button>
             <button className="danger-button" disabled={!sessionIsActive || loading !== null} type="button" onClick={() => void finishWorkoutSession()}>Finish Session</button>
           </div>
         </div>
         {sessionFinishedMessage ? <p className="success-message">{sessionFinishedMessage}</p> : null}
-        {activeSessionSummary ? <div className="session-summary-panel"><h3>Session summary</h3><p>Total sets: {activeSessionSummary.totalSets}</p><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
-        {sessionIsActive ? <div className="program-grid session-grid">
+        {activeSession ? <div className="session-metric-grid"><div className="session-metric-card"><span>Session</span><strong>#{activeSession.id}</strong></div><div className="session-metric-card"><span>Status</span><strong>{activeSession.status}</strong></div><div className="session-metric-card"><span>Program</span><strong>{selectedProgram?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Workout day</span><strong>{selectedWorkoutDay?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Readiness</span><strong>{activeSession.readiness_score ?? readinessScore}/10</strong></div><div className="session-metric-card"><span>Started</span><strong>{new Date(activeSession.started_at).toLocaleTimeString()}</strong></div><div className="session-metric-card"><span>Completed sets</span><strong>{completedSets.length}</strong></div><div className="session-metric-card"><span>Total logged</span><strong>{totalLoggedSets}</strong></div></div> : null}
+        {activeSessionSummary ? <div className="session-summary-panel"><h3>Completed session summary</h3><p>Total sets: {activeSessionSummary.totalSets}</p><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
+        {activeSession ? <div className="session-cockpit-grid"><div className="current-exercise-card"><p className="eyebrow">Current exercise</p>{selectedExercise ? <><h3>{selectedExercise.movement_name}</h3><div className="session-detail-grid"><p><strong>Target sets:</strong> {selectedExercise.sets}</p><p><strong>Target reps:</strong> {selectedExercise.reps}</p><p><strong>Rest:</strong> {selectedExercise.rest_seconds}s</p><p><strong>Logged here:</strong> {currentExerciseLoggedCount}</p><p><strong>Planned weights:</strong> {plannedSets.length}</p><p><strong>Videos:</strong> {youtubeVideos.length}</p></div><p>{selectedExercise.notes || "No exercise notes."}</p></> : <p className="empty-state">Select an exercise to log sets.</p>}</div><div className="next-set-card"><p className="eyebrow">Next set guidance</p>{selectedExercise ? <><h3>Set {nextSetNumber}</h3><p><strong>Target reps:</strong> {nextPlannedSet?.target_reps ?? selectedExercise.reps}</p><p><strong>Planned weight:</strong> {nextWeightText}</p><p><strong>Rest target:</strong> {selectedExercise.rest_seconds}s</p><p className="muted">Guidance only. Log what you actually did.</p><div className="next-exercise-preview"><strong>Next exercise:</strong> {nextExercise ? nextExercise.movement_name : "Last exercise in this workout day"}</div>{restSuggestionSeconds !== null ? <div className="rest-timer-panel"><div><p>Suggested rest: {restSuggestionSeconds} seconds</p><strong className="timer-value">{restTimerSeconds ?? restSuggestionSeconds}s</strong><p className="muted">{restTimerRunning ? "Rest timer running." : "Timer is ready."}</p></div><div className="timer-actions"><button className="secondary-button compact-button" type="button" onClick={startRestTimer}>Start Rest</button><button className="secondary-button compact-button" disabled={!restTimerRunning} type="button" onClick={pauseRestTimer}>Pause</button><button className="secondary-button compact-button" type="button" onClick={resetRestTimer}>Reset</button><button className="primary-button compact-button" type="button" onClick={markRestDone}>Mark rest done</button></div></div> : null}{restTimerMessage ? <p className="muted">{restTimerMessage}</p> : null}</> : <p className="empty-state">Select an exercise to see next set guidance.</p>}</div></div> : null}
+        {activeSession ? <div className="program-grid session-grid">
           <form className="program-form" onSubmit={saveSessionSet}>
-            <h3>Log set</h3>
-            <p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "select an exercise below"}</p>
+            <h3>Log current set</h3>
+            <p className="muted">Log what you actually did. The plan remains unchanged.</p>
             <div className="inline-fields">
-              <label>Set number<input min="1" type="number" value={sessionSetForm.set_number} onChange={(e) => setSessionSetForm({ ...sessionSetForm, set_number: e.target.value })} /></label>
-              <label>Difficulty 1-10<input max="10" min="1" type="number" value={sessionSetForm.difficulty_rating} onChange={(e) => setSessionSetForm({ ...sessionSetForm, difficulty_rating: e.target.value })} /></label>
+              <label>Set number<input disabled={!canLogSet} min="1" type="number" value={sessionSetForm.set_number} onChange={(e) => setSessionSetForm({ ...sessionSetForm, set_number: e.target.value })} /></label>
+              <label>Difficulty 1-10<input disabled={!canLogSet} max="10" min="1" type="number" value={sessionSetForm.difficulty_rating} onChange={(e) => setSessionSetForm({ ...sessionSetForm, difficulty_rating: e.target.value })} /></label>
             </div>
             <div className="inline-fields">
-              <label>Actual reps<input min="0" type="number" value={sessionSetForm.actual_reps} onChange={(e) => setSessionSetForm({ ...sessionSetForm, actual_reps: e.target.value })} /></label>
-              <label>Actual weight<input min="0" step="0.5" type="number" value={sessionSetForm.actual_weight} onChange={(e) => setSessionSetForm({ ...sessionSetForm, actual_weight: e.target.value })} /></label>
+              <label>Actual reps<input disabled={!canLogSet} min="0" type="number" value={sessionSetForm.actual_reps} onChange={(e) => setSessionSetForm({ ...sessionSetForm, actual_reps: e.target.value })} /></label>
+              <label>Actual weight<input disabled={!canLogSet} min="0" step="0.5" type="number" value={sessionSetForm.actual_weight} onChange={(e) => setSessionSetForm({ ...sessionSetForm, actual_weight: e.target.value })} /></label>
             </div>
             <p className="muted">Target: {selectedPlannedSet?.target_reps ?? selectedExercise?.reps ?? "none"} reps · {selectedPlannedSet?.suggested_weight ?? "no planned weight"} {selectedPlannedSet?.weight_unit ?? "kg"}</p>
-            <label>Set notes<textarea value={sessionSetForm.notes} onChange={(e) => setSessionSetForm({ ...sessionSetForm, notes: e.target.value })} /></label>
-            <button className="primary-button" disabled={!selectedExercise || loading !== null} type="submit">Save set</button>
-            {restSuggestionSeconds !== null ? <div className="rest-timer-panel"><div><p>Suggested rest: {restSuggestionSeconds} seconds</p><strong className="timer-value">{restTimerSeconds ?? restSuggestionSeconds}s</strong><p className="muted">{restTimerRunning ? "Rest timer running." : "Timer is ready."}</p></div><div className="timer-actions"><button className="secondary-button compact-button" type="button" onClick={startRestTimer}>Start Rest</button><button className="secondary-button compact-button" disabled={!restTimerRunning} type="button" onClick={pauseRestTimer}>Pause</button><button className="secondary-button compact-button" type="button" onClick={resetRestTimer}>Reset</button><button className="primary-button compact-button" type="button" onClick={markRestDone}>Mark rest done</button></div></div> : null}
-            {restTimerMessage ? <p className="muted">{restTimerMessage}</p> : null}
+            <label>Set notes<textarea disabled={!canLogSet} value={sessionSetForm.notes} onChange={(e) => setSessionSetForm({ ...sessionSetForm, notes: e.target.value })} /></label>
+            <button className="primary-button" disabled={!canLogSet || loading !== null} type="submit">{sessionIsActive ? "Save set" : "Session completed"}</button>
           </form>
-          <div className="program-list">
-            <h3>Saved sets</h3>
-            {completedSets.length === 0 ? <p className="empty-state">No sets logged yet.</p> : null}
-            <div className="program-cards">{completedSets.map((set) => <article className="program-card session-set-card" key={set.id}><div><h4>{getSessionSetExerciseName(set)} - Set {set.set_number}</h4><p>Planned: {set.planned_reps} reps - {formatWeight(set.planned_weight, set.weight_unit)}{set.planned_rest_seconds_snapshot !== null ? ` - rest ${set.planned_rest_seconds_snapshot}s` : ""}</p><p>Actual: {set.actual_reps ?? "-"} reps - {formatWeight(set.actual_weight, set.weight_unit)} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>
+          <div className="program-list completed-sets-checklist">
+            <h3>Completed sets checklist</h3>
+            {orderedLoggedSets.length === 0 ? <p className="empty-state">No sets logged yet.</p> : null}
+            <div className="program-cards">{orderedLoggedSets.map((set) => <article className="program-card session-set-card" key={set.id}><div><h4>{getSessionSetExerciseName(set)} - Set {set.set_number}</h4><p>Planned: {set.planned_reps} reps - {formatWeight(set.planned_weight, set.weight_unit)}{set.planned_rest_seconds_snapshot !== null ? ` - rest ${set.planned_rest_seconds_snapshot}s` : ""}</p><p>Actual: {set.actual_reps ?? "-"} reps - {formatWeight(set.actual_weight, set.weight_unit)} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>
           </div>
         </div> : null}
       </div>
 
+      <p className="builder-section-label">Workout Builder</p>
       <div className="program-grid"><form className="program-form" onSubmit={handleWorkoutDaySubmit}><h3>{editingWorkoutDayId ? "Edit day" : "Add day"}</h3><label>Day name<input disabled={selectedProgramId === null} value={workoutDayForm.name} onChange={(e) => setWorkoutDayForm({ ...workoutDayForm, name: e.target.value })} /></label><label>Order<input disabled={selectedProgramId === null} type="number" value={workoutDayForm.day_order} onChange={(e) => setWorkoutDayForm({ ...workoutDayForm, day_order: e.target.value })} /></label><button className="primary-button" disabled={selectedProgramId === null} type="submit">{editingWorkoutDayId ? "Save day" : "Add day"}</button></form><div className="program-list"><h3>Days</h3><div className="program-cards">{workoutDays.map((d) => <article className={`program-card${selectedWorkoutDayId === d.id ? " selected-card" : ""}`} key={d.id}><div><h4>{d.name}</h4><p>Order: {d.day_order}</p></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => setSelectedWorkoutDayId(d.id)} type="button">{selectedWorkoutDayId === d.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingWorkoutDayId(d.id); setWorkoutDayForm({ name: d.name, day_order: String(d.day_order) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteWorkoutDay(d.id)} type="button">Delete</button></div></article>)}</div></div></div>
       <div className="program-grid"><form className="program-form" onSubmit={handleExerciseSubmit}><h3>{editingExerciseId ? "Edit exercise" : "Add exercise"}</h3><label>Movement<input disabled={selectedWorkoutDayId === null} value={exerciseForm.movement_name} onChange={(e) => setExerciseForm({ ...exerciseForm, movement_name: e.target.value })} /></label><div className="inline-fields"><label>Sets<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.sets} onChange={(e) => setExerciseForm({ ...exerciseForm, sets: e.target.value })} /></label><label>Reps<input disabled={selectedWorkoutDayId === null} value={exerciseForm.reps} onChange={(e) => setExerciseForm({ ...exerciseForm, reps: e.target.value })} /></label></div><div className="inline-fields"><label>Rest seconds<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.rest_seconds} onChange={(e) => setExerciseForm({ ...exerciseForm, rest_seconds: e.target.value })} /></label><label>Order<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.exercise_order} onChange={(e) => setExerciseForm({ ...exerciseForm, exercise_order: e.target.value })} /></label></div><label>Notes<textarea disabled={selectedWorkoutDayId === null} value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} /></label><button className="primary-button" disabled={selectedWorkoutDayId === null} type="submit">{editingExerciseId ? "Save exercise" : "Add exercise"}</button></form><div className="program-list"><h3>Exercises {selectedWorkoutDay ? `for ${selectedWorkoutDay.name}` : ""}</h3><div className="program-cards">{exercises.map((e) => <article className={`program-card exercise-card${selectedExerciseId === e.id ? " selected-card" : ""}`} key={e.id}><div><h4>{e.exercise_order}. {e.movement_name}</h4><p>{e.sets} sets × {e.reps} · Rest {e.rest_seconds}s</p><span>{e.notes || "No notes"}</span></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => selectExercise(e)} type="button">{selectedExerciseId === e.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingExerciseId(e.id); setExerciseForm({ movement_name: e.movement_name, sets: String(e.sets), reps: e.reps, rest_seconds: String(e.rest_seconds), notes: e.notes, exercise_order: String(e.exercise_order) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteExercise(e.id)} type="button">Delete</button></div></article>)}</div></div></div>
       <div className="program-grid"><form className="program-form" onSubmit={handlePlannedSetSubmit}><h3>{editingPlannedSetId ? "Edit planned set" : "Add planned set weight"}</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><div className="inline-fields"><label>Set number<input disabled={selectedExerciseId === null} type="number" value={plannedSetForm.set_number} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, set_number: e.target.value })} /></label><label>Target reps<input disabled={selectedExerciseId === null} value={plannedSetForm.target_reps} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, target_reps: e.target.value })} /></label></div><div className="inline-fields"><label>Suggested weight<input disabled={selectedExerciseId === null} list="weight-options" type="number" step="0.5" value={plannedSetForm.suggested_weight} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, suggested_weight: e.target.value })} /><datalist id="weight-options"><option value="20" /><option value="30" /><option value="40" /><option value="50" /><option value="60" /><option value="80" /><option value="100" /></datalist></label><label>Unit<select disabled={selectedExerciseId === null} value={plannedSetForm.weight_unit} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, weight_unit: e.target.value })}><option value="kg">kg</option><option value="lb">lb</option><option value="bodyweight">bodyweight</option></select></label></div><label>Note<textarea disabled={selectedExerciseId === null} value={plannedSetForm.note} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, note: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">{editingPlannedSetId ? "Save planned set" : "Add planned set"}</button></form><div className="program-list"><h3>Planned set weights</h3>{selectedExercise ? <p className="muted">For {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first.</p>}<div className="program-cards">{plannedSets.map((set) => <article className="program-card" key={set.id}><div><h4>Set {set.set_number}</h4><p>{set.target_reps} reps · {set.suggested_weight ?? "—"} {set.weight_unit}</p><span>{set.note || "No note"}</span></div><div className="card-actions"><button className="secondary-button compact-button" onClick={() => { setEditingPlannedSetId(set.id); setPlannedSetForm({ set_number: String(set.set_number), target_reps: set.target_reps, suggested_weight: set.suggested_weight === null ? "" : String(set.suggested_weight), weight_unit: set.weight_unit, note: set.note }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deletePlannedSet(set.id)} type="button">Delete</button></div></article>)}</div></div></div>
