@@ -1,9 +1,10 @@
 from collections.abc import Generator
+import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./setpilot.db"
+SQLALCHEMY_DATABASE_URL = os.getenv("SETPILOT_DATABASE_URL", "sqlite:///./setpilot.db")
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -23,4 +24,3 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
-

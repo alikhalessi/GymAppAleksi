@@ -1,11 +1,10 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.database import get_db
+from app.models import utc_now
 
 router = APIRouter(prefix="/sessions", tags=["workout sessions"])
 
@@ -191,7 +190,7 @@ def finish_session(
 ) -> models.WorkoutSession:
     session = get_session_or_404(session_id, db)
     session.status = "completed"
-    session.finished_at = datetime.utcnow()
+    session.finished_at = utc_now()
 
     if finish_in.readiness_score is not None:
         session.readiness_score = finish_in.readiness_score

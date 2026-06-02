@@ -1,9 +1,13 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Program(Base):
@@ -15,7 +19,7 @@ class Program(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     goal: Mapped[str] = mapped_column(String(255), nullable=False)
     duration_weeks: Mapped[int] = mapped_column(Integer, nullable=False, default=4)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_days: Mapped[list["WorkoutDay"]] = relationship(
         back_populates="program",
@@ -40,7 +44,7 @@ class WorkoutDay(Base):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     day_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     program: Mapped[Program] = relationship(back_populates="workout_days")
     exercises: Mapped[list["WorkoutExercise"]] = relationship(
@@ -70,7 +74,7 @@ class WorkoutExercise(Base):
     rest_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=90)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     exercise_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_day: Mapped[WorkoutDay] = relationship(back_populates="exercises")
     planned_sets: Mapped[list["PlannedSet"]] = relationship(
@@ -103,7 +107,7 @@ class PlannedSet(Base):
     suggested_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     weight_unit: Mapped[str] = mapped_column(String(10), nullable=False, default="kg")
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="planned_sets")
 
@@ -125,7 +129,7 @@ class YouTubeVideo(Base):
     thumbnail_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="youtube_videos")
 
@@ -146,7 +150,7 @@ class WorkoutSession(Base):
         nullable=False,
         index=True,
     )
-    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -190,7 +194,7 @@ class SessionSet(Base):
     completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     rest_seconds_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_session: Mapped[WorkoutSession] = relationship(back_populates="session_sets")
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="session_sets")
