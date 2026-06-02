@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import models, schemas
 from app.database import get_db
 from app.models import utc_now
+from app.services import ai_session_reflection
 
 router = APIRouter(prefix="/sessions", tags=["workout sessions"])
 
@@ -200,3 +201,46 @@ def finish_session(
     db.add(session)
     db.commit()
     return get_session_or_404(session_id, db)
+
+
+@router.post("/{session_id}/reflection", response_model=schemas.SessionReflectionRead)
+def generate_session_reflection(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> models.SessionReflection:
+    session = get_session_or_404(session_id, db)
+    if session.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI reflection is available only after finishing the session.",
+        )
+
+    reflection_data, model_used = ai_session_reflection.generate_session_reflection_with_ai(session)
+    reflection = models.SessionReflection(
+        workout_session_id=session.id,
+        model_used=model_used,
+        **reflection_data,
+    )
+    db.add(reflection)
+    db.commit()
+    db.refresh(reflection)
+    return reflection
+
+
+@router.get("/{session_id}/reflection", response_model=schemas.SessionReflectionRead)
+def get_session_reflection(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> models.SessionReflection:
+    session = get_session_or_404(session_id, db)
+    reflection = db.scalar(
+        select(models.SessionReflection)
+        .where(models.SessionReflection.workout_session_id == session.id)
+        .order_by(models.SessionReflection.created_at.desc(), models.SessionReflection.id.desc())
+    )
+    if reflection is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No reflection found for this session.",
+        )
+    return reflection

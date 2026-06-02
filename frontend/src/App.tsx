@@ -7,6 +7,7 @@ type WorkoutExercise = { id: number; workout_day_id: number; movement_name: stri
 type PlannedSet = { id: number; workout_exercise_id: number; set_number: number; target_reps: string; suggested_weight: number | null; weight_unit: string; note: string; created_at: string };
 type SessionSet = { id: number; workout_session_id: number; workout_exercise_id: number; set_number: number; planned_reps: string; planned_weight: number | null; exercise_name_snapshot: string; workout_day_name_snapshot: string; program_name_snapshot: string; planned_rest_seconds_snapshot: number | null; actual_reps: number | null; actual_weight: number | null; weight_unit: string; difficulty_rating: number | null; completed: boolean; rest_seconds_used: number | null; notes: string; created_at: string };
 type WorkoutSession = { id: number; program_id: number; workout_day_id: number; started_at: string; finished_at: string | null; readiness_score: number | null; notes: string; status: string; session_sets: SessionSet[] };
+type SessionReflection = { id: number; workout_session_id: number; summary: string; what_went_well: string; what_was_difficult: string; next_session_suggestion: string; caution_flags: string; trainer_review_recommended: boolean; model_used: string; created_at: string };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
@@ -116,6 +117,8 @@ function App() {
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
+  const [selectedSessionReflection, setSelectedSessionReflection] = useState<SessionReflection | null>(null);
+  const [reflectionLoading, setReflectionLoading] = useState(false);
   const [sessionFinishedMessage, setSessionFinishedMessage] = useState<string | null>(null);
   const [restSuggestionSeconds, setRestSuggestionSeconds] = useState<number | null>(null);
   const [restTimerSeconds, setRestTimerSeconds] = useState<number | null>(null);
@@ -168,10 +171,33 @@ function App() {
   async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
   async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
   async function loadSessionDetail(sessionId: number) {
-    setError(null); setLoading("Loading session detail");
-    try { setSelectedSessionDetail(await api<WorkoutSession>(`/sessions/${sessionId}`)); }
+    setError(null); setLoading("Loading session detail"); setSelectedSessionReflection(null);
+    try {
+      setSelectedSessionDetail(await api<WorkoutSession>(`/sessions/${sessionId}`));
+      await loadSessionReflection(sessionId);
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Could not load session detail."); }
     finally { setLoading(null); }
+  }
+  async function loadSessionReflection(sessionId: number) {
+    setReflectionLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/reflection`);
+      const data = await response.json().catch(() => null);
+      if (response.status === 404) { setSelectedSessionReflection(null); return; }
+      if (!response.ok) throw new Error(formatApiError(data, "Could not load AI reflection."));
+      setSelectedSessionReflection(data as SessionReflection);
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not load AI reflection."); }
+    finally { setReflectionLoading(false); }
+  }
+  async function generateSessionReflection(sessionId: number) {
+    setError(null); setLoading("Generating AI reflection"); setReflectionLoading(true);
+    try {
+      setSelectedSessionReflection(await api<SessionReflection>(`/sessions/${sessionId}/reflection`, { method: "POST" }));
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not generate AI reflection."); }
+    finally { setLoading(null); setReflectionLoading(false); }
   }
 
   useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); }, []);
@@ -423,7 +449,7 @@ function App() {
         })}</div>}
       </div>
       {selectedSessionDetail && selectedDetailSummary ? <div className="program-list session-detail-panel">
-        <div className="list-header"><h3>Session #{selectedSessionDetail.id} Details</h3><button className="secondary-button compact-button" type="button" onClick={() => setSelectedSessionDetail(null)}>Close</button></div>
+        <div className="list-header"><h3>Session #{selectedSessionDetail.id} Details</h3><button className="secondary-button compact-button" type="button" onClick={() => { setSelectedSessionDetail(null); setSelectedSessionReflection(null); }}>Close</button></div>
         <div className="session-detail-grid">
           <p><strong>Status:</strong> {selectedSessionDetail.status}</p>
           <p><strong>Started:</strong> {new Date(selectedSessionDetail.started_at).toLocaleString()}</p>
@@ -437,6 +463,26 @@ function App() {
         <p><strong>Notes:</strong> {selectedSessionDetail.notes || "No notes"}</p>
         <h4>Logged sets</h4>
         {selectedSessionDetail.session_sets.length === 0 ? <p className="empty-state">No sets were logged in this session.</p> : <div className="session-set-list">{selectedSessionDetail.session_sets.map((set) => <article className="program-card session-set-card" key={set.id}><div><h4>{getSessionSetExerciseName(set)} - Set {set.set_number}</h4><p>Planned: {set.planned_reps} reps - {formatWeight(set.planned_weight, set.weight_unit)}{set.planned_rest_seconds_snapshot !== null ? ` - rest ${set.planned_rest_seconds_snapshot}s` : ""}</p><p>Actual: {set.actual_reps ?? "-"} reps - {formatWeight(set.actual_weight, set.weight_unit)} - difficulty {set.difficulty_rating ?? "-"}/10</p><span>{set.notes || "No notes"}</span></div></article>)}</div>}
+        <div className="reflection-panel">
+          <div className="list-header">
+            <div><h4>AI Session Reflection</h4><p>Reflection is advisory and does not modify your workout plan.</p></div>
+            {selectedSessionDetail.status === "completed" ? <button className="primary-button compact-button" disabled={reflectionLoading || loading !== null} type="button" onClick={() => void generateSessionReflection(selectedSessionDetail.id)}>{selectedSessionReflection ? "Regenerate reflection" : "Generate AI reflection"}</button> : null}
+          </div>
+          {selectedSessionDetail.status !== "completed" ? <p className="empty-state">Finish the session before generating reflection.</p> : null}
+          {reflectionLoading ? <p className="muted">Loading reflection...</p> : null}
+          {!reflectionLoading && selectedSessionDetail.status === "completed" && !selectedSessionReflection ? <p className="empty-state">No AI reflection generated yet.</p> : null}
+          {selectedSessionReflection ? <article className="reflection-card">
+            {selectedSessionReflection.trainer_review_recommended ? <span className="review-warning-pill">Trainer review recommended</span> : null}
+            <div className="reflection-grid">
+              <div><h5>Summary</h5><p>{selectedSessionReflection.summary}</p></div>
+              <div><h5>What went well</h5><p>{selectedSessionReflection.what_went_well}</p></div>
+              <div><h5>What was difficult</h5><p>{selectedSessionReflection.what_was_difficult}</p></div>
+              <div><h5>Next session suggestion</h5><p>{selectedSessionReflection.next_session_suggestion}</p></div>
+              <div><h5>Caution flags</h5><p>{selectedSessionReflection.caution_flags}</p></div>
+              <div><h5>Model</h5><p>{selectedSessionReflection.model_used || "not recorded"} - {new Date(selectedSessionReflection.created_at).toLocaleString()}</p></div>
+            </div>
+          </article> : null}
+        </div>
       </div> : null}
       <div className="program-grid"><div className="program-list"><h3>Quick Actions</h3><div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Paste / extract plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance current plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Weights & videos</button><button className="secondary-button" type="button" onClick={() => setActiveView("settings")}>API settings</button></div></div><div className="program-list"><h3>Next product milestone</h3><p>Session mode is the real shark-tank milestone: start workout, log actual sets, run rest timer, finish summary, and make next workout smarter.</p></div></div>
     </section>;

@@ -307,3 +307,22 @@ class WorkoutSessionRead(BaseModel):
     session_sets: list[SessionSetRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
+
+
+class SessionReflectionRead(BaseModel):
+    id: int
+    workout_session_id: int
+    summary: str
+    what_went_well: str
+    what_was_difficult: str
+    next_session_suggestion: str
+    caution_flags: str
+    trainer_review_recommended: bool
+    model_used: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SessionReflectionGenerateResponse(SessionReflectionRead):
+    pass

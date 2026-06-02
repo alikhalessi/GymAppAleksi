@@ -162,6 +162,10 @@ class WorkoutSession(Base):
         back_populates="workout_session",
         cascade="all, delete-orphan",
     )
+    reflections: Mapped[list["SessionReflection"]] = relationship(
+        back_populates="workout_session",
+        cascade="all, delete-orphan",
+    )
 
 
 class SessionSet(Base):
@@ -200,6 +204,29 @@ class SessionSet(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="session_sets")
 
 
+class SessionReflection(Base):
+    """AI-generated advisory reflection for a completed workout session."""
+
+    __tablename__ = "session_reflections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_session_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    what_went_well: Mapped[str] = mapped_column(Text, nullable=False)
+    what_was_difficult: Mapped[str] = mapped_column(Text, nullable=False)
+    next_session_suggestion: Mapped[str] = mapped_column(Text, nullable=False)
+    caution_flags: Mapped[str] = mapped_column(Text, nullable=False)
+    trainer_review_recommended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    model_used: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+    workout_session: Mapped[WorkoutSession] = relationship(back_populates="reflections")
+
+
 __all__ = [
     "Base",
     "Program",
@@ -209,4 +236,5 @@ __all__ = [
     "YouTubeVideo",
     "WorkoutSession",
     "SessionSet",
+    "SessionReflection",
 ]
