@@ -437,7 +437,19 @@ select:disabled {
   padding-top: 1.1rem;
 }
 
+.progression-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid rgba(19, 33, 25, 0.1);
+  padding-top: 1.1rem;
+}
+
 .reflection-panel .list-header {
+  align-items: flex-start;
+}
+
+.progression-panel .list-header {
   align-items: flex-start;
 }
 
@@ -446,7 +458,16 @@ select:disabled {
   margin: 0;
 }
 
+.progression-panel h4,
+.progression-panel p {
+  margin: 0;
+}
+
 .reflection-panel h4 {
+  color: #173f2a;
+}
+
+.progression-panel h4 {
   color: #173f2a;
 }
 
@@ -458,6 +479,59 @@ select:disabled {
   background: #fbfdfa;
   color: #132119;
   padding: 1rem;
+}
+
+.progression-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.progression-card {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid rgba(31, 82, 56, 0.16);
+  border-radius: 18px;
+  background: #fbfdfa;
+  color: #132119;
+  padding: 1rem;
+}
+
+.progression-card-header,
+.progression-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.progression-card h5 {
+  color: #173f2a;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.progression-card p {
+  color: #334139;
+  line-height: 1.5;
+}
+
+.confidence-pill,
+.suggestion-type-pill {
+  border-radius: 999px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.confidence-pill {
+  background: #eef8f1;
+  color: #17452c;
+}
+
+.suggestion-type-pill {
+  background: #e8f0ff;
+  color: #173f63;
 }
 
 .reflection-grid {

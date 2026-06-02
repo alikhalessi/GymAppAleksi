@@ -326,3 +326,23 @@ class SessionReflectionRead(BaseModel):
 
 class SessionReflectionGenerateResponse(SessionReflectionRead):
     pass
+
+
+class ProgressionSuggestionRead(BaseModel):
+    id: int
+    workout_session_id: int
+    workout_exercise_id: int | None
+    exercise_name_snapshot: str
+    suggestion_type: str
+    suggested_weight: float | None
+    weight_unit: str
+    suggested_reps: str
+    rationale: str
+    confidence: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ProgressionSuggestionGenerateResponse(BaseModel):
+    suggestions: list[ProgressionSuggestionRead] = Field(default_factory=list)

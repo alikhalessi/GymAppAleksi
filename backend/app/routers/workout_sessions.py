@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import models, schemas
 from app.database import get_db
 from app.models import utc_now
 from app.services import ai_session_reflection
+from app.services.progression import generate_progression_suggestions
 
 router = APIRouter(prefix="/sessions", tags=["workout sessions"])
 
@@ -244,3 +245,55 @@ def get_session_reflection(
             detail="No reflection found for this session.",
         )
     return reflection
+
+
+@router.post(
+    "/{session_id}/progression-suggestions",
+    response_model=list[schemas.ProgressionSuggestionRead],
+)
+def generate_session_progression_suggestions(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> list[models.ProgressionSuggestion]:
+    session = get_session_or_404(session_id, db)
+    if session.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Progression suggestions are available only after finishing the session.",
+        )
+
+    db.execute(
+        delete(models.ProgressionSuggestion).where(
+            models.ProgressionSuggestion.workout_session_id == session.id,
+        )
+    )
+    suggestions = [
+        models.ProgressionSuggestion(**suggestion)
+        for suggestion in generate_progression_suggestions(session)
+    ]
+    db.add_all(suggestions)
+    db.commit()
+    for suggestion in suggestions:
+        db.refresh(suggestion)
+    return suggestions
+
+
+@router.get(
+    "/{session_id}/progression-suggestions",
+    response_model=list[schemas.ProgressionSuggestionRead],
+)
+def get_session_progression_suggestions(
+    session_id: int,
+    db: Session = Depends(get_db),
+) -> list[models.ProgressionSuggestion]:
+    session = get_session_or_404(session_id, db)
+    return list(
+        db.scalars(
+            select(models.ProgressionSuggestion)
+            .where(models.ProgressionSuggestion.workout_session_id == session.id)
+            .order_by(
+                models.ProgressionSuggestion.exercise_name_snapshot.asc(),
+                models.ProgressionSuggestion.id.asc(),
+            )
+        )
+    )

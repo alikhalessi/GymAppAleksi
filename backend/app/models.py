@@ -166,6 +166,10 @@ class WorkoutSession(Base):
         back_populates="workout_session",
         cascade="all, delete-orphan",
     )
+    progression_suggestions: Mapped[list["ProgressionSuggestion"]] = relationship(
+        back_populates="workout_session",
+        cascade="all, delete-orphan",
+    )
 
 
 class SessionSet(Base):
@@ -227,6 +231,30 @@ class SessionReflection(Base):
     workout_session: Mapped[WorkoutSession] = relationship(back_populates="reflections")
 
 
+class ProgressionSuggestion(Base):
+    """Rule-based advisory suggestion for the next time an exercise is trained."""
+
+    __tablename__ = "progression_suggestions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    workout_session_id: Mapped[int] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    workout_exercise_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    exercise_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    suggestion_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    suggested_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight_unit: Mapped[str] = mapped_column(String(10), nullable=False, default="kg")
+    suggested_reps: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    rationale: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    confidence: Mapped[str] = mapped_column(String(40), nullable=False, default="medium")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+    workout_session: Mapped[WorkoutSession] = relationship(back_populates="progression_suggestions")
+
+
 __all__ = [
     "Base",
     "Program",
@@ -237,4 +265,5 @@ __all__ = [
     "WorkoutSession",
     "SessionSet",
     "SessionReflection",
+    "ProgressionSuggestion",
 ]
