@@ -67,7 +67,7 @@ select:disabled {
   color: #eaffef;
   font-size: clamp(1.35rem, 2vw, 1.9rem);
   font-weight: 900;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .brand::after {
@@ -118,7 +118,7 @@ select:disabled {
   color: #f5fff7;
   font-size: clamp(2.6rem, 7vw, 6rem);
   line-height: 0.92;
-  letter-spacing: -0.075em;
+  letter-spacing: 0;
 }
 
 .intro p {
@@ -209,7 +209,7 @@ select:disabled {
 .section-heading h2 {
   color: #173f2a;
   font-size: clamp(1.55rem, 3.5vw, 2.6rem);
-  letter-spacing: -0.045em;
+  letter-spacing: 0;
 }
 
 .section-heading p {
@@ -357,6 +357,34 @@ select:disabled {
   margin: 0;
   padding: 1rem;
   line-height: 1.55;
+}
+
+.cold-start-card,
+.flow-handoff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(46, 133, 80, 0.24);
+  background: linear-gradient(180deg, #fbfdfa, #eef8f1);
+  margin-bottom: 1.25rem;
+}
+
+.cold-start-card h3,
+.flow-handoff strong,
+.flow-handoff p {
+  margin: 0;
+}
+
+.flow-handoff {
+  color: #17452c;
+}
+
+.cold-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
 }
 
 .profile-grid {
@@ -881,6 +909,12 @@ select:disabled {
   font-weight: 900;
 }
 
+.finish-session-button {
+  border: 1px solid rgba(138, 86, 25, 0.22);
+  background: #fff8ee;
+  color: #6b3a0d;
+}
+
 .program-form,
 .program-list {
   color: #132119;
@@ -1181,6 +1215,12 @@ select:focus-visible {
 
   .session-cockpit-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cold-start-card,
+  .flow-handoff {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .session-detail-grid {

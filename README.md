@@ -6,7 +6,7 @@ The product focuses on helping users execute planned workouts in the gym: unders
 
 ## Current MVP Status
 
-This repository is in MVP feature development. The scaffold is complete and the current product slices include **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, **Planned Set Weights**, **Stored YouTube Examples**, **Automatic YouTube Search**, **AI Workout Plan Import**, **Readiness-Based AI Enhancement**, **In-App OpenAI Key Settings**, **Workout Session Mode**, **Set Logging**, **Rest Timer**, **Recent Sessions**, and **Human-Readable Session Detail History**.
+This repository is in MVP feature development. The scaffold is complete and the current product slices include **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, **Planned Set Weights**, **Stored YouTube Examples**, **Automatic YouTube Search**, **AI Workout Plan Import**, **Readiness-Based AI Enhancement**, **In-App OpenAI Key Settings**, **Workout Session Mode**, **Set Logging**, **Rest Timer**, **Recent Sessions**, **Human-Readable Session Detail History**, **AI Session Reflection**, **Progression Suggestions**, **Trainee Profile**, **Readiness Checks**, **Program Versions**, and a **Dashboard-First MVP Flow**.
 
 The current scaffold includes:
 
@@ -33,9 +33,9 @@ The current scaffold includes:
 - Frontend exercise creation, editing, deletion, refresh, and listing UI for the selected workout day
 - Frontend AI import panel with plain-text paste, AI preview, warnings, trainer-review flag, and save flow
 - Frontend readiness enhancement flow that preserves original plans until the user saves an adjusted version
-- Frontend planned set weights, YouTube examples, workout session mode, set logging, rest timer, recent sessions, and session detail view
+- Frontend planned set weights, YouTube examples, workout session mode, set logging, rest timer, recent sessions, session detail view, AI reflection controls, progression suggestion controls, profile/readiness context, and dashboard guidance
 
-Authentication, payments, trainer dashboard, smartwatch sync, nutrition, and AI session reflection are not included yet.
+Authentication, payments, trainer dashboard, smartwatch sync, and nutrition are not included yet.
 
 ## MVP Scope
 
@@ -54,7 +54,8 @@ The local MVP should support:
 11. Use workout timer and rest timer.
 12. Save weight, reps, and difficulty rating per set.
 13. Show a post-session summary.
-14. Show basic progress analysis.
+14. Generate an advisory AI session reflection after completion.
+15. Show basic progression suggestions and progress analysis.
 
 ## Tech Direction
 
