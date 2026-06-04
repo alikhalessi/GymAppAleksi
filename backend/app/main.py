@@ -10,6 +10,7 @@ from app.routers import (
     health,
     imports,
     planned_sets,
+    program_versions,
     programs,
     readiness_checks,
     settings,
@@ -86,6 +87,7 @@ app.include_router(settings.router)
 app.include_router(trainee_profile.router)
 app.include_router(readiness_checks.router)
 app.include_router(programs.router)
+app.include_router(program_versions.router)
 app.include_router(workout_days.router)
 app.include_router(workout_exercises.router)
 app.include_router(planned_sets.router)

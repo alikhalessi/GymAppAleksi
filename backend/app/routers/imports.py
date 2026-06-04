@@ -71,6 +71,30 @@ def save_workout_plan_import(
     db.commit()
     db.refresh(program)
 
+    version_label = "Saved plan"
+    version_type = "user_approved"
+    source = "user"
+    
+    status_lower = request.approval_status.lower()
+    if "original" in status_lower or "extracted" in status_lower or "imported" in status_lower:
+        version_label = "Original imported plan"
+        version_type = "imported_original"
+        source = "import"
+    elif "adjusted" in status_lower or "enhanced" in status_lower or "ai" in status_lower:
+        version_label = "AI-enhanced plan"
+        version_type = "ai_enhanced"
+        source = "enhancement"
+
+    program_version = models.ProgramVersion(
+        program_id=program.id,
+        version_label=version_label,
+        version_type=version_type,
+        source=source,
+        is_active=True,
+    )
+    db.add(program_version)
+    db.commit()
+
     for workout_day in created_days:
         db.refresh(workout_day)
     for exercise in created_exercises:
