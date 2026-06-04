@@ -53,6 +53,23 @@ class TraineeProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
+class ReadinessCheck(Base):
+    """Pre-session training context captured by the user."""
+
+    __tablename__ = "readiness_checks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    energy_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sleep_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    soreness_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    stress_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pain_or_limitations_today: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    available_time_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    readiness_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
 class WorkoutDay(Base):
     """A named training day inside a workout program."""
 
@@ -280,6 +297,7 @@ class ProgressionSuggestion(Base):
 __all__ = [
     "Base",
     "TraineeProfile",
+    "ReadinessCheck",
     "Program",
     "WorkoutDay",
     "WorkoutExercise",

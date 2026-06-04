@@ -183,6 +183,31 @@ class TraineeProfileRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReadinessCheckCreate(BaseModel):
+    energy_level: int | None = Field(default=None, ge=1, le=10)
+    sleep_quality: int | None = Field(default=None, ge=1, le=10)
+    soreness_level: int | None = Field(default=None, ge=1, le=10)
+    stress_level: int | None = Field(default=None, ge=1, le=10)
+    pain_or_limitations_today: str = Field(default="", max_length=6000)
+    available_time_minutes: int | None = Field(default=None, ge=1, le=240)
+    notes: str = Field(default="", max_length=2000)
+
+
+class ReadinessCheckRead(BaseModel):
+    id: int
+    energy_level: int | None
+    sleep_quality: int | None
+    soreness_level: int | None
+    stress_level: int | None
+    pain_or_limitations_today: str
+    available_time_minutes: int | None
+    readiness_score: int | None
+    notes: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class WorkoutPlanImportRequest(BaseModel):
     raw_text: str = Field(..., min_length=10, max_length=12000)
 

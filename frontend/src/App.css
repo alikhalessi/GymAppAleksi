@@ -325,12 +325,49 @@ select:disabled {
   min-width: 0;
 }
 
+.readiness-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(280px, 0.9fr);
+  gap: 1.25rem;
+}
+
+.readiness-card,
+.readiness-score-card,
+.readiness-snapshot {
+  min-width: 0;
+}
+
+.readiness-score-card {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+}
+
+.readiness-score-card .timer-value {
+  color: #173f2a;
+  text-shadow: none;
+}
+
+.readiness-snapshot {
+  margin-bottom: 1.35rem;
+}
+
 .profile-context-note {
   border: 1px solid rgba(31, 82, 56, 0.14);
   border-radius: 18px;
   background: #f6fbf7;
   color: #334139;
   margin: 0;
+  padding: 0.9rem;
+  line-height: 1.55;
+}
+
+.context-note {
+  border: 1px solid rgba(31, 82, 56, 0.14);
+  border-radius: 18px;
+  background: #f6fbf7;
+  color: #334139;
+  margin: 0 0 1rem;
   padding: 0.9rem;
   line-height: 1.55;
 }
@@ -1069,6 +1106,7 @@ select:focus-visible {
   .cockpit-grid,
   .dashboard-summary-grid,
   .profile-grid,
+  .readiness-grid,
   .session-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1113,6 +1151,7 @@ select:focus-visible {
   .cockpit-grid,
   .dashboard-summary-grid,
   .profile-grid,
+  .readiness-grid,
   .session-metric-grid {
     grid-template-columns: 1fr;
   }

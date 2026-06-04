@@ -11,6 +11,7 @@ type SessionReflection = { id: number; workout_session_id: number; summary: stri
 type ProgressionSuggestion = { id: number; workout_session_id: number; workout_exercise_id: number | null; exercise_name_snapshot: string; suggestion_type: string; suggested_weight: number | null; weight_unit: string; suggested_reps: string; rationale: string; confidence: string; created_at: string };
 type DashboardSummary = { total_sessions: number; completed_sessions: number; active_sessions: number; total_logged_sets: number; completed_sets: number; average_difficulty: number | null; latest_completed_session_id: number | null; latest_completed_session_started_at: string | null; latest_completed_session_finished_at: string | null; latest_program_name: string | null; latest_workout_day_name: string | null; latest_exercise_names: string[]; latest_reflection_summary: string | null; latest_progression_suggestions: string[] };
 type TraineeProfile = { id: number; display_name: string; age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; limitations: string; available_equipment: string; preferred_session_minutes: number | null; notes: string; created_at: string; updated_at: string };
+type ReadinessCheck = { id: number; energy_level: number | null; sleep_quality: number | null; soreness_level: number | null; stress_level: number | null; pain_or_limitations_today: string; available_time_minutes: number | null; readiness_score: number | null; notes: string; created_at: string };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
@@ -19,17 +20,19 @@ type AIParsedPlan = { program: { name: string; goal: string; duration_weeks: num
 type ImportAnalysis = { parsed_plan: AIParsedPlan; overall_confidence: number; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
 type ReadinessProfile = { age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; energy_level: number; sleep_quality: number; soreness_level: number; stress_level: number; pain_or_limitations: string; available_equipment: string; session_time_limit_minutes: number | null; difficulty_preference: string; extra_notes: string };
 type EnhancementResponse = { adjusted_plan: AIParsedPlan; changes: { day_name: string; exercise_name: string | null; change_type: string; original: string; adjusted: string; reason: string }[]; summary: string; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
-type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "programs" | "training" | "settings";
+type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "programs" | "training" | "settings";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
 const defaultReadiness: ReadinessProfile = { age: 45, sex: "", height_cm: 167, weight_kg: 98, bmi: 35.1, training_experience: "intermediate", primary_goal: "strength and fat loss", energy_level: 7, sleep_quality: 7, soreness_level: 4, stress_level: 5, pain_or_limitations: "", available_equipment: "full gym", session_time_limit_minutes: 75, difficulty_preference: "moderate", extra_notes: "" };
 const emptyProfileForm = { display_name: "", age: "", sex: "", height_cm: "", weight_kg: "", training_experience: "", primary_goal: "", limitations: "", available_equipment: "", preferred_session_minutes: "", notes: "" };
+const emptyReadinessCheckForm = { energy_level: "", sleep_quality: "", soreness_level: "", stress_level: "", pain_or_limitations_today: "", available_time_minutes: "", notes: "" };
 const navItems: { id: ActiveView; label: string; subtitle: string }[] = [
   { id: "dashboard", label: "Dashboard", subtitle: "mission control" },
   { id: "import", label: "Import", subtitle: "extract chaos" },
   { id: "enhance", label: "Enhance", subtitle: "readiness brain" },
   { id: "profile", label: "Profile", subtitle: "training context" },
+  { id: "readiness", label: "Readiness", subtitle: "today context" },
   { id: "training", label: "Training", subtitle: "sets + videos" },
   { id: "programs", label: "Programs", subtitle: "library" },
   { id: "settings", label: "Settings", subtitle: "keys" },
@@ -117,6 +120,18 @@ function profileToForm(profile: TraineeProfile) {
   };
 }
 
+function readinessCheckToForm(check: ReadinessCheck) {
+  return {
+    energy_level: check.energy_level === null ? "" : String(check.energy_level),
+    sleep_quality: check.sleep_quality === null ? "" : String(check.sleep_quality),
+    soreness_level: check.soreness_level === null ? "" : String(check.soreness_level),
+    stress_level: check.stress_level === null ? "" : String(check.stress_level),
+    pain_or_limitations_today: check.pain_or_limitations_today,
+    available_time_minutes: check.available_time_minutes === null ? "" : String(check.available_time_minutes),
+    notes: check.notes,
+  };
+}
+
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -151,6 +166,10 @@ function App() {
   const [traineeProfileForm, setTraineeProfileForm] = useState(emptyProfileForm);
   const [profileSavedMessage, setProfileSavedMessage] = useState<string | null>(null);
   const [profileAppliedOnLoad, setProfileAppliedOnLoad] = useState(false);
+  const [latestReadinessCheck, setLatestReadinessCheck] = useState<ReadinessCheck | null>(null);
+  const [readinessCheckForm, setReadinessCheckForm] = useState(emptyReadinessCheckForm);
+  const [readinessCheckLoading, setReadinessCheckLoading] = useState(false);
+  const [readinessCheckSavedMessage, setReadinessCheckSavedMessage] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
@@ -229,6 +248,23 @@ function App() {
     setTraineeProfile(profile);
     setTraineeProfileForm(profileToForm(profile));
   }
+  async function loadLatestReadinessCheck() {
+    setReadinessCheckLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/readiness-checks/latest`);
+      const data = await response.json().catch(() => null);
+      if (response.status === 404) {
+        setLatestReadinessCheck(null);
+        return;
+      }
+      if (!response.ok) throw new Error(formatApiError(data, "Could not load readiness check."));
+      const check = data as ReadinessCheck;
+      setLatestReadinessCheck(check);
+      setReadinessCheckForm(readinessCheckToForm(check));
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not load readiness check."); }
+    finally { setReadinessCheckLoading(false); }
+  }
   async function loadSessionDetail(sessionId: number) {
     setError(null); setLoading("Loading session detail"); setSelectedSessionReflection(null); setSelectedSessionProgressionSuggestions([]);
     try {
@@ -278,7 +314,7 @@ function App() {
     finally { setLoading(null); setProgressionLoading(false); }
   }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); void loadLatestReadinessCheck(); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadWorkoutDays(selectedProgramId).catch((e) => setError(e.message));
@@ -369,6 +405,29 @@ function App() {
     catch (e) { setError(e instanceof Error ? e.message : "Could not save profile."); }
     finally { setLoading(null); }
   }
+  async function saveReadinessCheck(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setReadinessCheckSavedMessage(null);
+    setLoading("Saving readiness");
+    const payload = {
+      energy_level: readinessCheckForm.energy_level ? Number(readinessCheckForm.energy_level) : null,
+      sleep_quality: readinessCheckForm.sleep_quality ? Number(readinessCheckForm.sleep_quality) : null,
+      soreness_level: readinessCheckForm.soreness_level ? Number(readinessCheckForm.soreness_level) : null,
+      stress_level: readinessCheckForm.stress_level ? Number(readinessCheckForm.stress_level) : null,
+      pain_or_limitations_today: readinessCheckForm.pain_or_limitations_today.trim(),
+      available_time_minutes: readinessCheckForm.available_time_minutes ? Number(readinessCheckForm.available_time_minutes) : null,
+      notes: readinessCheckForm.notes.trim(),
+    };
+    try {
+      const saved = await api<ReadinessCheck>("/readiness-checks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      setLatestReadinessCheck(saved);
+      setReadinessCheckForm(readinessCheckToForm(saved));
+      setReadinessCheckSavedMessage(saved.readiness_score === null ? "Readiness saved without a score." : `Readiness saved at ${saved.readiness_score}/10.`);
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not save readiness."); }
+    finally { setLoading(null); }
+  }
   async function analyzeImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setEnhancement(null); setImportAnalysis(null); setLoading("Extracting plan");
     try { setImportAnalysis(await api<ImportAnalysis>("/imports/workout-plan/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw_text: importText }) })); setActiveView("import"); }
@@ -446,7 +505,7 @@ function App() {
         body: JSON.stringify({
           program_id: selectedProgramId,
           workout_day_id: selectedWorkoutDayId,
-          readiness_score: readinessScore,
+          readiness_score: latestReadinessCheck?.readiness_score ?? null,
           notes: "",
         }),
       });
@@ -578,6 +637,28 @@ function App() {
       extra_notes: current.extra_notes.trim() ? current.extra_notes : profile.notes,
     }));
   }
+  function applyLatestReadinessToEnhance(check = latestReadinessCheck) {
+    if (!check) return;
+    setReadiness((current) => {
+      const readinessNotes = check.notes.trim();
+      const extra_notes = readinessNotes
+        ? current.extra_notes.trim()
+          ? `${current.extra_notes}\n\nReadiness: ${readinessNotes}`
+          : readinessNotes
+        : current.extra_notes;
+
+      return {
+        ...current,
+        energy_level: check.energy_level ?? current.energy_level,
+        sleep_quality: check.sleep_quality ?? current.sleep_quality,
+        soreness_level: check.soreness_level ?? current.soreness_level,
+        stress_level: check.stress_level ?? current.stress_level,
+        pain_or_limitations: check.pain_or_limitations_today || current.pain_or_limitations,
+        session_time_limit_minutes: check.available_time_minutes ?? current.session_time_limit_minutes,
+        extra_notes,
+      };
+    });
+  }
   function selectExercise(exercise: WorkoutExercise) { setSelectedExerciseId(exercise.id); setPlannedSetForm({ set_number: "1", target_reps: exercise.reps, suggested_weight: "", weight_unit: "kg", note: "" }); setSessionSetForm({ set_number: "1", actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: "1" }); }
   function renderPlan(plan: AIParsedPlan) { return <div className="program-cards">{plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.name}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.notes ? `— ${ex.notes}` : ""}</p>)}</div></article>)}</div>; }
 
@@ -612,6 +693,10 @@ function App() {
         <h3>Quick Actions</h3>
         <div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("training")}>{activeSession?.status === "active" ? "Continue training" : "Start / continue training"}</button><button className="secondary-button" type="button" onClick={() => setActiveView("import")}>Import plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("programs")}>Open program library</button></div>
       </div>
+      <section className="program-list readiness-snapshot">
+        <div className="list-header"><h3>Readiness Snapshot</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("readiness")}>Update readiness</button></div>
+        {latestReadinessCheck ? <div className="dashboard-summary-grid compact-summary-grid"><article className="metric-card"><span>Score</span><strong>{latestReadinessCheck.readiness_score === null ? "not scored" : `${latestReadinessCheck.readiness_score}/10`}</strong></article><article className="metric-card"><span>Energy</span><strong>{latestReadinessCheck.energy_level ?? "not set"}</strong></article><article className="metric-card"><span>Sleep</span><strong>{latestReadinessCheck.sleep_quality ?? "not set"}</strong></article><article className="metric-card"><span>Saved</span><strong>{new Date(latestReadinessCheck.created_at).toLocaleDateString()}</strong></article></div> : <p className="dashboard-empty-state">No readiness check saved yet. You can still start training.</p>}
+      </section>
       <section className="program-list profile-snapshot">
         <div className="list-header"><h3>Profile Snapshot</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("profile")}>Edit profile</button></div>
         {traineeProfile && (traineeProfile.display_name || traineeProfile.primary_goal || traineeProfile.training_experience || traineeProfile.bmi !== null) ? <div className="dashboard-summary-grid compact-summary-grid"><article className="metric-card"><span>Name</span><strong>{traineeProfile.display_name || "not set"}</strong></article><article className="metric-card"><span>Goal</span><strong>{traineeProfile.primary_goal || "not set"}</strong></article><article className="metric-card"><span>Experience</span><strong>{traineeProfile.training_experience || "not set"}</strong></article><article className="metric-card"><span>BMI context</span><strong>{traineeProfile.bmi === null ? "not set" : traineeProfile.bmi}</strong></article></div> : <p className="dashboard-empty-state">Add your profile to improve training context.</p>}
@@ -690,11 +775,15 @@ function App() {
   }
 
   function renderEnhanceView() {
-    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Enhance</p><h2>Enhance Based on Profile & Readiness</h2></div><p>Optional adjustment. BMI is context, not a verdict. Original plan remains untouched.</p></div><div className="program-list profile-context-note"><div className="list-header"><p>Saved profile can prefill these context fields without changing a plan.</p><button className="secondary-button compact-button" disabled={!traineeProfile} type="button" onClick={() => applySavedProfileToReadiness()}>Use saved profile</button></div></div>{!importAnalysis ? <div className="program-list"><h3>No extracted plan yet</h3><p>Import a plan first, then use this screen to adapt it based on readiness and profile.</p><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Go to Import</button></div> : <><div className="program-grid"><div className="program-form"><h3>Trainee profile</h3><div className="inline-fields"><label>Age<input type="number" value={readiness.age ?? ""} onChange={(e) => updateReadiness("age", e.target.value ? Number(e.target.value) : null)} /></label><label>Sex / optional<input value={readiness.sex} onChange={(e) => updateReadiness("sex", e.target.value)} /></label></div><div className="inline-fields"><label>Height cm<input type="number" value={readiness.height_cm ?? ""} onChange={(e) => updateReadiness("height_cm", e.target.value ? Number(e.target.value) : null)} /></label><label>Weight kg<input type="number" value={readiness.weight_kg ?? ""} onChange={(e) => updateReadiness("weight_kg", e.target.value ? Number(e.target.value) : null)} /></label></div><p className="muted">Calculated BMI: {computedBmi ?? "add height and weight"}</p><h3>Readiness</h3><div className="inline-fields"><label>Experience<input value={readiness.training_experience} onChange={(e) => updateReadiness("training_experience", e.target.value)} /></label><label>Goal<input value={readiness.primary_goal} onChange={(e) => updateReadiness("primary_goal", e.target.value)} /></label></div><div className="inline-fields"><label>Energy 1-10<input type="number" min="1" max="10" value={readiness.energy_level} onChange={(e) => updateReadiness("energy_level", Number(e.target.value))} /></label><label>Sleep 1-10<input type="number" min="1" max="10" value={readiness.sleep_quality} onChange={(e) => updateReadiness("sleep_quality", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Soreness 1-10<input type="number" min="1" max="10" value={readiness.soreness_level} onChange={(e) => updateReadiness("soreness_level", Number(e.target.value))} /></label><label>Stress 1-10<input type="number" min="1" max="10" value={readiness.stress_level} onChange={(e) => updateReadiness("stress_level", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Difficulty<input value={readiness.difficulty_preference} onChange={(e) => updateReadiness("difficulty_preference", e.target.value)} /></label><label>Time limit minutes<input type="number" value={readiness.session_time_limit_minutes ?? ""} onChange={(e) => updateReadiness("session_time_limit_minutes", e.target.value ? Number(e.target.value) : null)} /></label></div><label>Limitations / difficulties<textarea value={readiness.pain_or_limitations} onChange={(e) => updateReadiness("pain_or_limitations", e.target.value)} /></label><label>Available equipment<textarea value={readiness.available_equipment} onChange={(e) => updateReadiness("available_equipment", e.target.value)} /></label><label>Extra notes<textarea value={readiness.extra_notes} onChange={(e) => updateReadiness("extra_notes", e.target.value)} /></label><button className="primary-button" disabled={loading !== null} type="button" onClick={() => void enhancePlan()}>Enhance plan</button></div><div className="program-list"><h3>Enhancement promise</h3><p>The adjusted plan is a proposal. Save adjusted version only after review.</p></div></div>{enhancement ? <div className="program-list import-preview"><div className="list-header"><h3>Adjusted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(enhancement.adjusted_plan, "approved_adjusted_plan")}>Save adjusted plan</button></div><p>{enhancement.summary}</p>{enhancement.trainer_review_required ? <p className="warning-pill">Trainer review recommended.</p> : null}<h4>Changes</h4>{enhancement.changes.length ? <ul>{enhancement.changes.map((change, index) => <li key={`${change.day_name}-${change.change_type}-${index}`}><strong>{change.change_type}</strong> — {change.original} → {change.adjusted}. {change.reason}</li>)}</ul> : <p>No major changes proposed.</p>}{renderPlan(enhancement.adjusted_plan)}</div> : null}</>}</section>;
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Enhance</p><h2>Enhance Based on Profile & Readiness</h2></div><p>Optional adjustment. BMI is context, not a verdict. Original plan remains untouched.</p></div><div className="program-list profile-context-note"><div className="list-header"><p>Saved profile can prefill these context fields without changing a plan.</p><button className="secondary-button compact-button" disabled={!traineeProfile} type="button" onClick={() => applySavedProfileToReadiness()}>Use saved profile</button></div></div><div className="program-list context-note"><div className="list-header"><p>Latest readiness can prefill today context without replacing your profile.</p><button className="secondary-button compact-button" disabled={!latestReadinessCheck} type="button" onClick={() => applyLatestReadinessToEnhance()}>Use latest readiness</button></div></div>{!importAnalysis ? <div className="program-list"><h3>No extracted plan yet</h3><p>Import a plan first, then use this screen to adapt it based on readiness and profile.</p><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Go to Import</button></div> : <><div className="program-grid"><div className="program-form"><h3>Trainee profile</h3><div className="inline-fields"><label>Age<input type="number" value={readiness.age ?? ""} onChange={(e) => updateReadiness("age", e.target.value ? Number(e.target.value) : null)} /></label><label>Sex / optional<input value={readiness.sex} onChange={(e) => updateReadiness("sex", e.target.value)} /></label></div><div className="inline-fields"><label>Height cm<input type="number" value={readiness.height_cm ?? ""} onChange={(e) => updateReadiness("height_cm", e.target.value ? Number(e.target.value) : null)} /></label><label>Weight kg<input type="number" value={readiness.weight_kg ?? ""} onChange={(e) => updateReadiness("weight_kg", e.target.value ? Number(e.target.value) : null)} /></label></div><p className="muted">Calculated BMI: {computedBmi ?? "add height and weight"}</p><h3>Readiness</h3><div className="inline-fields"><label>Experience<input value={readiness.training_experience} onChange={(e) => updateReadiness("training_experience", e.target.value)} /></label><label>Goal<input value={readiness.primary_goal} onChange={(e) => updateReadiness("primary_goal", e.target.value)} /></label></div><div className="inline-fields"><label>Energy 1-10<input type="number" min="1" max="10" value={readiness.energy_level} onChange={(e) => updateReadiness("energy_level", Number(e.target.value))} /></label><label>Sleep 1-10<input type="number" min="1" max="10" value={readiness.sleep_quality} onChange={(e) => updateReadiness("sleep_quality", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Soreness 1-10<input type="number" min="1" max="10" value={readiness.soreness_level} onChange={(e) => updateReadiness("soreness_level", Number(e.target.value))} /></label><label>Stress 1-10<input type="number" min="1" max="10" value={readiness.stress_level} onChange={(e) => updateReadiness("stress_level", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Difficulty<input value={readiness.difficulty_preference} onChange={(e) => updateReadiness("difficulty_preference", e.target.value)} /></label><label>Time limit minutes<input type="number" value={readiness.session_time_limit_minutes ?? ""} onChange={(e) => updateReadiness("session_time_limit_minutes", e.target.value ? Number(e.target.value) : null)} /></label></div><label>Limitations / difficulties<textarea value={readiness.pain_or_limitations} onChange={(e) => updateReadiness("pain_or_limitations", e.target.value)} /></label><label>Available equipment<textarea value={readiness.available_equipment} onChange={(e) => updateReadiness("available_equipment", e.target.value)} /></label><label>Extra notes<textarea value={readiness.extra_notes} onChange={(e) => updateReadiness("extra_notes", e.target.value)} /></label><button className="primary-button" disabled={loading !== null} type="button" onClick={() => void enhancePlan()}>Enhance plan</button></div><div className="program-list"><h3>Enhancement promise</h3><p>The adjusted plan is a proposal. Save adjusted version only after review.</p></div></div>{enhancement ? <div className="program-list import-preview"><div className="list-header"><h3>Adjusted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(enhancement.adjusted_plan, "approved_adjusted_plan")}>Save adjusted plan</button></div><p>{enhancement.summary}</p>{enhancement.trainer_review_required ? <p className="warning-pill">Trainer review recommended.</p> : null}<h4>Changes</h4>{enhancement.changes.length ? <ul>{enhancement.changes.map((change, index) => <li key={`${change.day_name}-${change.change_type}-${index}`}><strong>{change.change_type}</strong> — {change.original} → {change.adjusted}. {change.reason}</li>)}</ul> : <p>No major changes proposed.</p>}{renderPlan(enhancement.adjusted_plan)}</div> : null}</>}</section>;
   }
 
   function renderProgramsView() {
     return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Programs</p><h2>Program Library</h2></div><p>Create manually or save from AI import/enhancement.</p></div><div className="program-grid"><form className="program-form" onSubmit={handleProgramSubmit}><h3>{editingProgramId ? "Edit program" : "Create program"}</h3><label>Program name<input value={programForm.name} onChange={(e) => setProgramForm({ ...programForm, name: e.target.value })} /></label><label>Goal<textarea value={programForm.goal} onChange={(e) => setProgramForm({ ...programForm, goal: e.target.value })} /></label><label>Duration weeks<input type="number" value={programForm.duration_weeks} onChange={(e) => setProgramForm({ ...programForm, duration_weeks: e.target.value })} /></label><button className="primary-button" type="submit">{editingProgramId ? "Save" : "Create"}</button></form><div className="program-list"><h3>Saved programs</h3><div className="program-cards">{programs.map((p) => <article className={`program-card${selectedProgramId === p.id ? " selected-card" : ""}`} key={p.id}><div><h4>{p.name}</h4><p>{p.goal}</p><span>{p.duration_weeks} weeks</span></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => { setSelectedProgramId(p.id); setActiveView("dashboard"); }} type="button">{selectedProgramId === p.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingProgramId(p.id); setProgramForm({ name: p.name, goal: p.goal, duration_weeks: String(p.duration_weeks) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteProgram(p.id)} type="button">Delete</button></div></article>)}</div></div></div></section>;
+  }
+
+  function renderReadinessView() {
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Readiness</p><h2>Today Context</h2></div><p>Readiness is training context. It is not a diagnosis.</p></div><div className="readiness-grid"><form className="program-form readiness-card" onSubmit={saveReadinessCheck}><h3>Pre-session check</h3>{readinessCheckSavedMessage ? <p className="save-message">{readinessCheckSavedMessage}</p> : null}<div className="inline-fields"><label>Energy 1-10<input min="1" max="10" type="number" value={readinessCheckForm.energy_level} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, energy_level: e.target.value })} /></label><label>Sleep 1-10<input min="1" max="10" type="number" value={readinessCheckForm.sleep_quality} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, sleep_quality: e.target.value })} /></label></div><div className="inline-fields"><label>Soreness 1-10<input min="1" max="10" type="number" value={readinessCheckForm.soreness_level} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, soreness_level: e.target.value })} /></label><label>Stress 1-10<input min="1" max="10" type="number" value={readinessCheckForm.stress_level} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, stress_level: e.target.value })} /></label></div><label>Pain or limitations today<textarea value={readinessCheckForm.pain_or_limitations_today} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, pain_or_limitations_today: e.target.value })} /></label><label>Available time minutes<input min="1" max="240" type="number" value={readinessCheckForm.available_time_minutes} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, available_time_minutes: e.target.value })} /></label><label>Notes<textarea value={readinessCheckForm.notes} onChange={(e) => setReadinessCheckForm({ ...readinessCheckForm, notes: e.target.value })} /></label><button className="primary-button" disabled={loading !== null || readinessCheckLoading} type="submit">Save readiness</button></form><div className="program-list readiness-score-card"><h3>Latest score</h3>{latestReadinessCheck ? <><strong className="timer-value">{latestReadinessCheck.readiness_score === null ? "-" : latestReadinessCheck.readiness_score}/10</strong><p>Energy {latestReadinessCheck.energy_level ?? "not set"}, sleep {latestReadinessCheck.sleep_quality ?? "not set"}, soreness {latestReadinessCheck.soreness_level ?? "not set"}, stress {latestReadinessCheck.stress_level ?? "not set"}.</p><p><strong>Available time:</strong> {latestReadinessCheck.available_time_minutes === null ? "not set" : `${latestReadinessCheck.available_time_minutes} minutes`}</p><p><strong>Saved:</strong> {new Date(latestReadinessCheck.created_at).toLocaleString()}</p><p className="context-note">{latestReadinessCheck.pain_or_limitations_today || "No pain or limitation notes saved today."}</p><div className="form-actions"><button className="secondary-button" type="button" onClick={() => applyLatestReadinessToEnhance()}>Use in Enhance</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Go to Training</button></div></> : <><p className="empty-state">No readiness check saved yet.</p><button className="secondary-button" disabled={readinessCheckLoading} type="button" onClick={() => void loadLatestReadinessCheck()}>Refresh</button></>}</div></div></section>;
   }
 
   function renderProfileView() {
@@ -734,9 +823,10 @@ function App() {
             <button className="danger-button" disabled={!sessionIsActive || loading !== null} type="button" onClick={() => void finishWorkoutSession()}>Finish Session</button>
           </div>
         </div>
+        <p className="context-note">Latest readiness: {latestReadinessCheck?.readiness_score === null || latestReadinessCheck?.readiness_score === undefined ? "not recorded" : `${latestReadinessCheck.readiness_score}/10`}. You can train without readiness, but readiness improves session context.</p>
         {sessionFinishedMessage ? <p className="success-message">{sessionFinishedMessage}</p> : null}
         {activeSession?.status === "completed" ? <p className="success-message">Session completed.</p> : null}
-        {activeSession ? <div className="session-metric-grid"><div className="session-metric-card"><span>Session</span><strong>#{activeSession.id}</strong></div><div className="session-metric-card"><span>Status</span><strong>{activeSession.status}</strong></div><div className="session-metric-card"><span>Program</span><strong>{selectedProgram?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Workout day</span><strong>{selectedWorkoutDay?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Readiness</span><strong>{activeSession.readiness_score ?? readinessScore}/10</strong></div><div className="session-metric-card"><span>Started</span><strong>{new Date(activeSession.started_at).toLocaleTimeString()}</strong></div><div className="session-metric-card"><span>Completed sets</span><strong>{completedSets.length}</strong></div><div className="session-metric-card"><span>Total logged</span><strong>{totalLoggedSets}</strong></div></div> : null}
+        {activeSession ? <div className="session-metric-grid"><div className="session-metric-card"><span>Session</span><strong>#{activeSession.id}</strong></div><div className="session-metric-card"><span>Status</span><strong>{activeSession.status}</strong></div><div className="session-metric-card"><span>Program</span><strong>{selectedProgram?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Workout day</span><strong>{selectedWorkoutDay?.name ?? "Unknown"}</strong></div><div className="session-metric-card"><span>Readiness</span><strong>{activeSession.readiness_score === null ? "not recorded" : `${activeSession.readiness_score}/10`}</strong></div><div className="session-metric-card"><span>Started</span><strong>{new Date(activeSession.started_at).toLocaleTimeString()}</strong></div><div className="session-metric-card"><span>Completed sets</span><strong>{completedSets.length}</strong></div><div className="session-metric-card"><span>Total logged</span><strong>{totalLoggedSets}</strong></div></div> : null}
         {activeSessionSummary ? <div className="session-summary-panel"><h3>Completed session summary</h3><p>Total sets: {activeSessionSummary.totalSets}</p><p>Total completed sets: {activeSessionSummary.completedSets}</p><p>Exercises touched: {activeSessionSummary.exercisesTouched}</p><p>Average difficulty: {activeSessionSummary.averageDifficulty === null ? "not rated" : `${activeSessionSummary.averageDifficulty.toFixed(1)}/10`}</p><p>Status: {activeSession?.status ?? "unknown"}</p><p>Notes: {activeSession?.notes || "No notes"}</p></div> : null}
         {activeSession ? <div className="session-cockpit-grid"><div className="current-exercise-card"><p className="eyebrow">Current exercise</p>{selectedExercise ? <><h3>{selectedExercise.movement_name}</h3><div className="session-detail-grid"><p><strong>Target sets:</strong> {selectedExercise.sets}</p><p><strong>Target reps:</strong> {selectedExercise.reps}</p><p><strong>Rest:</strong> {selectedExercise.rest_seconds}s</p><p><strong>Logged here:</strong> {currentExerciseLoggedCount}</p><p><strong>Planned weights:</strong> {plannedSets.length}</p><p><strong>Videos:</strong> {youtubeVideos.length}</p></div><p>{selectedExercise.notes || "No exercise notes."}</p></> : <p className="empty-state">Select an exercise to log sets.</p>}</div><div className="next-set-card"><p className="eyebrow">Next set guidance</p>{selectedExercise ? <><h3>Set {nextSetNumber}</h3><p><strong>Target reps:</strong> {nextPlannedSet?.target_reps ?? selectedExercise.reps}</p><p><strong>Planned weight:</strong> {nextWeightText}</p><p><strong>Rest target:</strong> {selectedExercise.rest_seconds}s</p><p className="muted">Guidance only. Log what you actually did.</p><div className="next-exercise-preview"><strong>Next exercise:</strong> {nextExercise ? nextExercise.movement_name : "Last exercise in this workout day."}</div>{restSuggestionSeconds !== null ? <div className="rest-timer-panel"><div><p>Suggested rest: {restSuggestionSeconds} seconds</p><strong className="timer-value">{restTimerSeconds ?? restSuggestionSeconds}s</strong><p className="muted">{restTimerRunning ? "Rest timer running." : "Timer is ready."}</p></div><div className="timer-actions"><button className="secondary-button compact-button" type="button" onClick={startRestTimer}>Start Rest</button><button className="secondary-button compact-button" disabled={!restTimerRunning} type="button" onClick={pauseRestTimer}>Pause</button><button className="secondary-button compact-button" type="button" onClick={resetRestTimer}>Reset</button><button className="primary-button compact-button" type="button" onClick={markRestDone}>Mark rest done</button></div></div> : null}{restTimerMessage ? <p className="muted">{restTimerMessage}</p> : null}</> : <p className="empty-state">Select an exercise to see next set guidance.</p>}</div></div> : null}
         {activeSession ? <div className="program-grid session-grid">
@@ -784,6 +874,7 @@ function App() {
     {activeView === "import" ? renderImportView() : null}
     {activeView === "enhance" ? renderEnhanceView() : null}
     {activeView === "profile" ? renderProfileView() : null}
+    {activeView === "readiness" ? renderReadinessView() : null}
     {activeView === "programs" ? renderProgramsView() : null}
     {activeView === "training" ? renderTrainingViewV2() : null}
     {activeView === "settings" ? renderSettingsView() : null}

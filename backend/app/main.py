@@ -11,6 +11,7 @@ from app.routers import (
     imports,
     planned_sets,
     programs,
+    readiness_checks,
     settings,
     trainee_profile,
     workout_days,
@@ -83,6 +84,7 @@ ensure_local_sqlite_snapshot_columns()
 app.include_router(health.router)
 app.include_router(settings.router)
 app.include_router(trainee_profile.router)
+app.include_router(readiness_checks.router)
 app.include_router(programs.router)
 app.include_router(workout_days.router)
 app.include_router(workout_exercises.router)
