@@ -411,6 +411,10 @@ select:disabled {
   text-transform: uppercase;
 }
 
+.training-tools-section {
+  padding-top: 0.35rem;
+}
+
 .active-session-cockpit + .builder-section-label + .program-grid + .program-grid + .program-grid::before,
 .active-session-cockpit + .builder-section-label + .program-grid + .program-grid + .program-grid + .program-grid::before {
   border: 1px solid rgba(19, 33, 25, 0.08);
