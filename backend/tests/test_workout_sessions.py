@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import ai_session_reflection
+from app.services import runtime_settings
 
 client = TestClient(app)
 
@@ -182,7 +183,9 @@ def test_duplicate_session_set_creation_is_rejected() -> None:
     )
 
     assert duplicate_response.status_code == 400
-    assert duplicate_response.json()["detail"] == "Session set already exists. Use update instead."
+    assert duplicate_response.json()["detail"] == (
+        "A set for this exercise and set number already exists in this session. Update that set instead."
+    )
 
 
 def test_cannot_add_set_after_finishing_session() -> None:
@@ -206,7 +209,9 @@ def test_cannot_add_set_after_finishing_session() -> None:
     )
 
     assert create_after_finish_response.status_code == 400
-    assert create_after_finish_response.json()["detail"] == "Cannot add sets to a finished session"
+    assert create_after_finish_response.json()["detail"] == (
+        "This session is completed. Start a new session before logging more sets."
+    )
 
 
 def test_cannot_update_set_after_finishing_session() -> None:
@@ -230,7 +235,9 @@ def test_cannot_update_set_after_finishing_session() -> None:
     )
 
     assert update_after_finish_response.status_code == 400
-    assert update_after_finish_response.json()["detail"] == "Cannot update sets in a finished session"
+    assert update_after_finish_response.json()["detail"] == (
+        "This session is completed. Logged sets are locked for editing in this MVP."
+    )
 
 
 def fake_reflection_payload(summary: str = "Session completed with useful training data.") -> tuple[dict, str]:
@@ -287,6 +294,19 @@ def test_cannot_generate_reflection_for_active_session(monkeypatch) -> None:
     assert response.status_code == 400
     assert response.json()["detail"] == "AI reflection is available only after finishing the session."
     assert called is False
+
+
+def test_generate_reflection_requires_openai_api_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    runtime_settings.clear_session_openai_api_key()
+    session_id = finish_test_session_with_set()
+
+    response = client.post(f"/sessions/{session_id}/reflection")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "OpenAI API key is not configured. Save it in Settings or set OPENAI_API_KEY in your backend environment."
+    )
 
 
 def test_can_generate_and_get_saved_reflection_for_completed_session(monkeypatch) -> None:

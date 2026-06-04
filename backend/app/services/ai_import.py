@@ -202,7 +202,10 @@ def analyze_workout_plan_with_ai(raw_text: str) -> schemas.WorkoutPlanImportAnal
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI workout import failed with model {model}: {exc}",
+            detail=(
+                f"AI workout import failed while contacting OpenAI with model {model}. "
+                "Check backend network access, API key permissions, and model access."
+            ),
         ) from exc
 
     try:
@@ -211,5 +214,5 @@ def analyze_workout_plan_with_ai(raw_text: str) -> schemas.WorkoutPlanImportAnal
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI returned an invalid workout import response: {exc}",
+            detail="AI returned a workout import response SetPilot could not read. Try again with a shorter or clearer plan.",
         ) from exc

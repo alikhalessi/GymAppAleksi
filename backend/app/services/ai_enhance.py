@@ -161,7 +161,10 @@ def enhance_workout_plan_with_ai(request: schemas.WorkoutPlanEnhanceRequest) -> 
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI workout enhancement failed with model {model}: {exc}",
+            detail=(
+                f"AI workout enhancement failed while contacting OpenAI with model {model}. "
+                "Check backend network access, API key permissions, and model access."
+            ),
         ) from exc
 
     try:
@@ -170,5 +173,5 @@ def enhance_workout_plan_with_ai(request: schemas.WorkoutPlanEnhanceRequest) -> 
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI returned an invalid workout enhancement response: {exc}",
+            detail="AI returned a workout enhancement response SetPilot could not read. Try again with simpler readiness context.",
         ) from exc

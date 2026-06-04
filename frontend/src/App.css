@@ -237,6 +237,51 @@ select:disabled {
   box-shadow: 0 12px 28px rgba(138, 33, 25, 0.08);
 }
 
+.global-error .list-header {
+  align-items: flex-start;
+}
+
+.global-error .error-message {
+  white-space: pre-line;
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.dismiss-button {
+  border: 1px solid rgba(138, 33, 25, 0.28);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #8a2119;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0.55rem 0.85rem;
+}
+
+.loading-banner {
+  border: 1px solid rgba(46, 133, 80, 0.22);
+  border-radius: 18px;
+  background: #eef9f1;
+  color: #174b2d;
+  font-weight: 900;
+  margin: 0;
+  padding: 1rem;
+}
+
+.setup-note,
+.inline-help {
+  border-left: 4px solid #2e8550;
+  background: #f3fbf5;
+  color: #33483b;
+  line-height: 1.5;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem 0.9rem;
+}
+
 .program-grid {
   display: grid;
   grid-template-columns: minmax(290px, 0.9fr) minmax(360px, 1.1fr);
@@ -1055,6 +1100,20 @@ select:focus-visible {
   line-height: 1.55;
   background: #fbfdfa;
   color: #435149;
+}
+
+.empty-state-title {
+  color: #173f2a;
+  display: block;
+  font-weight: 900;
+  margin: 0 0 0.35rem;
+}
+
+.empty-state-action {
+  color: #2e8550;
+  display: block;
+  font-weight: 900;
+  margin-top: 0.45rem;
 }
 
 .video-grid {

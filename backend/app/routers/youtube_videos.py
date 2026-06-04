@@ -37,6 +37,20 @@ def get_existing_youtube_ids(exercise_id: int, db: Session) -> set[str]:
     )
 
 
+def assert_youtube_video_is_new(exercise_id: int, youtube_video_id: str, db: Session) -> None:
+    existing = db.scalar(
+        select(models.YouTubeVideo.id).where(
+            models.YouTubeVideo.workout_exercise_id == exercise_id,
+            models.YouTubeVideo.youtube_video_id == youtube_video_id,
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This YouTube video is already attached to this exercise.",
+        )
+
+
 @router.post("", response_model=schemas.YouTubeVideoRead, status_code=status.HTTP_201_CREATED)
 def create_youtube_video(
     exercise_id: int,
@@ -44,6 +58,7 @@ def create_youtube_video(
     db: Session = Depends(get_db),
 ) -> models.YouTubeVideo:
     get_exercise_or_404(exercise_id, db)
+    assert_youtube_video_is_new(exercise_id, video_in.youtube_video_id, db)
     video = models.YouTubeVideo(workout_exercise_id=exercise_id, **video_in.model_dump())
     db.add(video)
     db.commit()
@@ -64,7 +79,7 @@ def search_and_save_youtube_videos(
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="YOUTUBE_API_KEY is not configured in the backend environment.",
+            detail="YouTube API key is not configured. Set YOUTUBE_API_KEY in the backend environment and restart uvicorn.",
         )
 
     search_query = query or f"{exercise.movement_name} exercise proper form tutorial"
@@ -85,12 +100,15 @@ def search_and_save_youtube_videos(
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"YouTube search failed: {exc.response.text}",
+            detail=(
+                "YouTube search failed because YouTube rejected the request. "
+                "Check YOUTUBE_API_KEY permissions, quota, and API enablement."
+            ),
         ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"YouTube search failed: {exc}",
+            detail="YouTube search failed because the backend could not reach YouTube. Check network access and try again.",
         ) from exc
 
     existing_ids = get_existing_youtube_ids(exercise_id, db)

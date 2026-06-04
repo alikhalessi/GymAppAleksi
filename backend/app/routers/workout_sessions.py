@@ -214,7 +214,7 @@ def create_session_set(
     if session.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot add sets to a finished session",
+            detail="This session is completed. Start a new session before logging more sets.",
         )
 
     exercise = get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db)
@@ -226,7 +226,7 @@ def create_session_set(
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Session set already exists. Use update instead.",
+            detail="A set for this exercise and set number already exists in this session. Update that set instead.",
         )
 
     session_set = models.SessionSet(
@@ -254,7 +254,7 @@ def update_session_set(
     if session.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot update sets in a finished session",
+            detail="This session is completed. Logged sets are locked for editing in this MVP.",
         )
 
     session_set = get_session_set_or_404(session_id, session_set_id, db)

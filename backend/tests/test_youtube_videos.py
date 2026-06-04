@@ -57,6 +57,20 @@ def test_youtube_video_crud_flow() -> None:
 
     video_id = created["id"]
 
+    duplicate_response = client.post(
+        base_url,
+        json={
+            "youtube_video_id": "dQw4w9WgXcQ",
+            "title": "Duplicate Bench Press Tutorial",
+            "channel_name": "Example Coach",
+            "thumbnail_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+            "display_order": 2,
+            "approved": True,
+        },
+    )
+    assert duplicate_response.status_code == 400
+    assert duplicate_response.json()["detail"] == "This YouTube video is already attached to this exercise."
+
     list_response = client.get(base_url)
     assert list_response.status_code == 200
     assert any(video["id"] == video_id for video in list_response.json())
@@ -75,3 +89,15 @@ def test_youtube_video_crud_flow() -> None:
     after_delete = client.get(base_url)
     assert after_delete.status_code == 200
     assert all(video["id"] != video_id for video in after_delete.json())
+
+
+def test_youtube_search_requires_backend_api_key(monkeypatch) -> None:
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+    exercise_id = create_exercise()
+
+    response = client.post(f"/exercises/{exercise_id}/youtube-videos/search-and-save")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "YouTube API key is not configured. Set YOUTUBE_API_KEY in the backend environment and restart uvicorn."
+    )

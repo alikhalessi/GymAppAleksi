@@ -152,7 +152,10 @@ def generate_session_reflection_with_ai(session: models.WorkoutSession) -> tuple
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI session reflection failed with model {model}: {exc}",
+            detail=(
+                f"AI session reflection failed while contacting OpenAI with model {model}. "
+                "Check backend network access, API key permissions, and model access."
+            ),
         ) from exc
 
     try:
@@ -160,7 +163,7 @@ def generate_session_reflection_with_ai(session: models.WorkoutSession) -> tuple
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI returned an invalid session reflection response: {exc}",
+            detail="AI returned a session reflection response SetPilot could not read. Try again after reviewing the session data.",
         ) from exc
 
     if not isinstance(parsed, dict):
