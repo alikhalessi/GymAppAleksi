@@ -346,3 +346,20 @@ class ProgressionSuggestionRead(BaseModel):
 
 class ProgressionSuggestionGenerateResponse(BaseModel):
     suggestions: list[ProgressionSuggestionRead] = Field(default_factory=list)
+
+
+class DashboardSummaryRead(BaseModel):
+    total_sessions: int
+    completed_sessions: int
+    active_sessions: int
+    total_logged_sets: int
+    completed_sets: int
+    average_difficulty: float | None
+    latest_completed_session_id: int | None
+    latest_completed_session_started_at: datetime | None
+    latest_completed_session_finished_at: datetime | None
+    latest_program_name: str | None
+    latest_workout_day_name: str | None
+    latest_exercise_names: list[str] = Field(default_factory=list)
+    latest_reflection_summary: str | None
+    latest_progression_suggestions: list[str] = Field(default_factory=list)

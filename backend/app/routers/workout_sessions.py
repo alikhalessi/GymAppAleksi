@@ -108,6 +108,90 @@ def get_recent_sessions(
     )
 
 
+@router.get("/dashboard-summary", response_model=schemas.DashboardSummaryRead)
+def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSummaryRead:
+    sessions = list(
+        db.scalars(
+            select(models.WorkoutSession)
+            .options(
+                selectinload(models.WorkoutSession.program),
+                selectinload(models.WorkoutSession.workout_day),
+                selectinload(models.WorkoutSession.session_sets),
+            )
+            .order_by(models.WorkoutSession.started_at.desc(), models.WorkoutSession.id.desc())
+        )
+    )
+    completed_sessions = [session for session in sessions if session.status == "completed"]
+    active_sessions = [session for session in sessions if session.status == "active"]
+    session_sets = [session_set for session in sessions for session_set in session.session_sets]
+    completed_sets = [session_set for session_set in session_sets if session_set.completed]
+    ratings = [
+        session_set.difficulty_rating
+        for session_set in completed_sets
+        if session_set.difficulty_rating is not None
+    ]
+    latest_session = completed_sessions[0] if completed_sessions else None
+    latest_reflection_summary: str | None = None
+    latest_progression_suggestions: list[str] = []
+    latest_exercise_names: list[str] = []
+
+    if latest_session is not None:
+        seen_exercise_names: set[str] = set()
+        for session_set in sorted(
+            latest_session.session_sets,
+            key=lambda item: (item.created_at, item.id),
+        ):
+            exercise_name = session_set.exercise_name_snapshot.strip() or f"Exercise #{session_set.workout_exercise_id}"
+            if exercise_name not in seen_exercise_names:
+                latest_exercise_names.append(exercise_name)
+                seen_exercise_names.add(exercise_name)
+
+        latest_reflection = db.scalar(
+            select(models.SessionReflection)
+            .where(models.SessionReflection.workout_session_id == latest_session.id)
+            .order_by(models.SessionReflection.created_at.desc(), models.SessionReflection.id.desc())
+        )
+        if latest_reflection is not None:
+            latest_reflection_summary = latest_reflection.summary
+
+        suggestions = list(
+            db.scalars(
+                select(models.ProgressionSuggestion)
+                .where(models.ProgressionSuggestion.workout_session_id == latest_session.id)
+                .order_by(models.ProgressionSuggestion.id.asc())
+            )
+        )
+        latest_progression_suggestions = [
+            " - ".join(
+                item
+                for item in [
+                    suggestion.exercise_name_snapshot.strip() or "Exercise",
+                    suggestion.suggestion_type.replace("_", " "),
+                    suggestion.rationale,
+                ]
+                if item
+            )
+            for suggestion in suggestions
+        ]
+
+    return schemas.DashboardSummaryRead(
+        total_sessions=len(sessions),
+        completed_sessions=len(completed_sessions),
+        active_sessions=len(active_sessions),
+        total_logged_sets=len(session_sets),
+        completed_sets=len(completed_sets),
+        average_difficulty=(sum(ratings) / len(ratings)) if ratings else None,
+        latest_completed_session_id=latest_session.id if latest_session else None,
+        latest_completed_session_started_at=latest_session.started_at if latest_session else None,
+        latest_completed_session_finished_at=latest_session.finished_at if latest_session else None,
+        latest_program_name=latest_session.program.name if latest_session and latest_session.program else None,
+        latest_workout_day_name=latest_session.workout_day.name if latest_session and latest_session.workout_day else None,
+        latest_exercise_names=latest_exercise_names,
+        latest_reflection_summary=latest_reflection_summary,
+        latest_progression_suggestions=latest_progression_suggestions,
+    )
+
+
 @router.get("/{session_id}", response_model=schemas.WorkoutSessionRead)
 def get_session(
     session_id: int,

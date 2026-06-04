@@ -9,6 +9,7 @@ type SessionSet = { id: number; workout_session_id: number; workout_exercise_id:
 type WorkoutSession = { id: number; program_id: number; workout_day_id: number; started_at: string; finished_at: string | null; readiness_score: number | null; notes: string; status: string; session_sets: SessionSet[] };
 type SessionReflection = { id: number; workout_session_id: number; summary: string; what_went_well: string; what_was_difficult: string; next_session_suggestion: string; caution_flags: string; trainer_review_recommended: boolean; model_used: string; created_at: string };
 type ProgressionSuggestion = { id: number; workout_session_id: number; workout_exercise_id: number | null; exercise_name_snapshot: string; suggestion_type: string; suggested_weight: number | null; weight_unit: string; suggested_reps: string; rationale: string; confidence: string; created_at: string };
+type DashboardSummary = { total_sessions: number; completed_sessions: number; active_sessions: number; total_logged_sets: number; completed_sets: number; average_difficulty: number | null; latest_completed_session_id: number | null; latest_completed_session_started_at: string | null; latest_completed_session_finished_at: string | null; latest_program_name: string | null; latest_workout_day_name: string | null; latest_exercise_names: string[]; latest_reflection_summary: string | null; latest_progression_suggestions: string[] };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
@@ -126,6 +127,7 @@ function App() {
   const [importAnalysis, setImportAnalysis] = useState<ImportAnalysis | null>(null);
   const [readiness, setReadiness] = useState<ReadinessProfile>(defaultReadiness);
   const [enhancement, setEnhancement] = useState<EnhancementResponse | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
@@ -198,6 +200,7 @@ function App() {
   async function loadPlannedSets(exerciseId: number) { setPlannedSets(await api<PlannedSet[]>(`/exercises/${exerciseId}/planned-sets`)); }
   async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
   async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
+  async function loadDashboardSummary() { setDashboardSummary(await api<DashboardSummary>("/sessions/dashboard-summary")); }
   async function loadSessionDetail(sessionId: number) {
     setError(null); setLoading("Loading session detail"); setSelectedSessionReflection(null); setSelectedSessionProgressionSuggestions([]);
     try {
@@ -224,6 +227,7 @@ function App() {
     setError(null); setLoading("Generating AI reflection"); setReflectionLoading(true);
     try {
       setSelectedSessionReflection(await api<SessionReflection>(`/sessions/${sessionId}/reflection`, { method: "POST" }));
+      await loadDashboardSummary();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not generate AI reflection."); }
     finally { setLoading(null); setReflectionLoading(false); }
@@ -240,12 +244,13 @@ function App() {
     setError(null); setLoading("Generating progression suggestions"); setProgressionLoading(true);
     try {
       setSelectedSessionProgressionSuggestions(await api<ProgressionSuggestion[]>(`/sessions/${sessionId}/progression-suggestions`, { method: "POST" }));
+      await loadDashboardSummary();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not generate progression suggestions."); }
     finally { setLoading(null); setProgressionLoading(false); }
   }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadWorkoutDays(selectedProgramId).catch((e) => setError(e.message));
@@ -375,6 +380,7 @@ function App() {
       });
       setActiveSession(session);
       await loadRecentSessions();
+      await loadDashboardSummary();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not start session."); }
     finally { setLoading(null); }
@@ -445,6 +451,7 @@ function App() {
       setRestTimerRunning(false);
       setRestTimerMessage(null);
       await loadRecentSessions();
+      await loadDashboardSummary();
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not finish session."); }
     finally { setLoading(null); }
@@ -489,6 +496,33 @@ function App() {
     const selectedDetailSummary = selectedSessionDetail ? summarizeSession(selectedSessionDetail) : null;
 
     return <section className="program-workspace cockpit-view">
+      <div className="dashboard-summary-grid">
+        <section className="program-list latest-workout-card">
+          <div className="list-header"><h3>Training Status</h3><button className="secondary-button compact-button" type="button" onClick={() => { void loadDashboardSummary(); void loadRecentSessions(); }}>Refresh</button></div>
+          <div className="dashboard-summary-grid compact-summary-grid">
+            <article className="metric-card"><span>Completed Sessions</span><strong>{dashboardSummary?.completed_sessions ?? 0}</strong></article>
+            <article className="metric-card"><span>Active Sessions</span><strong>{dashboardSummary?.active_sessions ?? 0}</strong></article>
+            <article className="metric-card"><span>Completed Sets</span><strong>{dashboardSummary?.completed_sets ?? 0}</strong></article>
+            <article className="metric-card"><span>Average Difficulty</span><strong>{dashboardSummary?.average_difficulty === null || dashboardSummary?.average_difficulty === undefined ? "not rated" : `${dashboardSummary.average_difficulty.toFixed(1)}/10`}</strong></article>
+          </div>
+        </section>
+        <section className="program-list latest-workout-card">
+          <h3>Latest Workout</h3>
+          {dashboardSummary?.latest_completed_session_id ? <><p><strong>{dashboardSummary.latest_program_name ?? "Unknown program"}</strong> - {dashboardSummary.latest_workout_day_name ?? "Unknown day"}</p><p>Finished: {dashboardSummary.latest_completed_session_finished_at ? new Date(dashboardSummary.latest_completed_session_finished_at).toLocaleString() : "not recorded"}</p>{dashboardSummary.latest_exercise_names.length ? <p>Exercises: {dashboardSummary.latest_exercise_names.join(", ")}</p> : <p>No exercise names were captured.</p>}<button className="secondary-button compact-button" type="button" onClick={() => void loadSessionDetail(dashboardSummary.latest_completed_session_id as number)}>View latest session detail</button></> : <p className="dashboard-empty-state">No completed sessions yet. Finish a workout to activate training memory.</p>}
+        </section>
+        <section className="program-list dashboard-insight-card">
+          <h3>Latest Reflection</h3>
+          {dashboardSummary?.latest_reflection_summary ? <p>{dashboardSummary.latest_reflection_summary}</p> : <p className="dashboard-empty-state">No reflection yet. Finish a session and generate one.</p>}
+        </section>
+        <section className="program-list dashboard-insight-card">
+          <h3>Next Session Suggestions</h3>
+          {dashboardSummary?.latest_progression_suggestions.length ? <div className="dashboard-insight-list">{dashboardSummary.latest_progression_suggestions.map((suggestion, index) => <p key={`${suggestion}-${index}`}>{suggestion}</p>)}</div> : <p className="dashboard-empty-state">No progression suggestions yet.</p>}
+        </section>
+      </div>
+      <div className="program-list dashboard-insight-card">
+        <h3>Quick Actions</h3>
+        <div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("training")}>{activeSession?.status === "active" ? "Continue training" : "Start / continue training"}</button><button className="secondary-button" type="button" onClick={() => setActiveView("import")}>Import plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("programs")}>Open program library</button></div>
+      </div>
       <div className="section-heading"><div><p className="eyebrow">Mission control</p><h2>Today’s Training Cockpit</h2></div><p>The app now starts where the user starts: what am I doing today, how ready am I, and what is the next useful action?</p></div>
       <div className="cockpit-grid">
         <article className="mission-card primary-mission"><p className="eyebrow">Current mission</p><h3>{selectedWorkoutDay ? selectedWorkoutDay.name : "No workout day selected"}</h3><p>{selectedProgram ? selectedProgram.name : "Create or import a program to activate the cockpit."}</p><div className="form-actions"><button className="primary-button" type="button" onClick={() => setActiveView("training")}>{selectedWorkoutDay ? "Prepare session" : "Build program"}</button><button className="secondary-button" type="button" onClick={() => setActiveView("import")}>Import plan</button></div></article>
@@ -555,7 +589,6 @@ function App() {
           </article> : null}
         </div>
       </div> : null}
-      <div className="program-grid"><div className="program-list"><h3>Quick Actions</h3><div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Paste / extract plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance current plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("training")}>Weights & videos</button><button className="secondary-button" type="button" onClick={() => setActiveView("settings")}>API settings</button></div></div><div className="program-list"><h3>Next product milestone</h3><p>Session mode is the real shark-tank milestone: start workout, log actual sets, run rest timer, finish summary, and make next workout smarter.</p></div></div>
     </section>;
   }
 

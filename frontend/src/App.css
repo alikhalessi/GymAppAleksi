@@ -251,6 +251,69 @@ select:disabled {
   margin-bottom: 1.35rem;
 }
 
+.dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.35rem;
+}
+
+.compact-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 1rem 0 0;
+}
+
+.metric-card,
+.latest-workout-card,
+.dashboard-insight-card {
+  min-width: 0;
+}
+
+.metric-card {
+  display: grid;
+  gap: 0.35rem;
+  border: 1px solid rgba(19, 33, 25, 0.08);
+  border-radius: 18px;
+  background: #fbfdfa;
+  padding: 1rem;
+}
+
+.metric-card span {
+  color: #4d5d53;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-card strong {
+  color: #173f2a;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1;
+}
+
+.latest-workout-card,
+.dashboard-insight-card {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.dashboard-insight-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dashboard-empty-state {
+  border: 1px dashed rgba(23, 33, 27, 0.25);
+  border-radius: 18px;
+  background: #fbfdfa;
+  color: #435149;
+  margin: 0;
+  padding: 1rem;
+  line-height: 1.55;
+}
+
 .mission-card {
   display: grid;
   align-content: space-between;
@@ -973,6 +1036,7 @@ select:focus-visible {
   .actions,
   .program-grid,
   .cockpit-grid,
+  .dashboard-summary-grid,
   .session-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1015,6 +1079,7 @@ select:focus-visible {
   .actions,
   .inline-fields,
   .cockpit-grid,
+  .dashboard-summary-grid,
   .session-metric-grid {
     grid-template-columns: 1fr;
   }
