@@ -352,6 +352,79 @@ select:disabled {
   margin-bottom: 1.35rem;
 }
 
+.coach-panel {
+  align-items: start;
+}
+
+.proposal-card,
+.proposal-change-card,
+.proposal-context-card {
+  border: 1px solid rgba(31, 82, 56, 0.16);
+  border-radius: 18px;
+  background: #fbfdfa;
+  color: #132119;
+  padding: 1rem;
+}
+
+.proposal-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.proposal-card h4,
+.proposal-change-card h4,
+.proposal-card p,
+.proposal-change-card p,
+.proposal-context-card p {
+  margin: 0;
+}
+
+.proposal-card p,
+.proposal-change-card p,
+.proposal-context-card p {
+  color: #334139;
+  line-height: 1.5;
+}
+
+.proposal-card-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.proposal-card-header span,
+.proposal-status-pill,
+.proposal-warning-pill {
+  border-radius: 999px;
+  padding: 0.4rem 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.proposal-status-pill {
+  display: inline-flex;
+  background: #eef8f1;
+  color: #17452c;
+}
+
+.proposal-warning-pill {
+  background: #fff3d8;
+  color: #725100;
+}
+
+.proposal-detail-panel,
+.proposal-change-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.proposal-detail-panel {
+  margin-top: 1.35rem;
+}
+
 .profile-context-note {
   border: 1px solid rgba(31, 82, 56, 0.14);
   border-radius: 18px;

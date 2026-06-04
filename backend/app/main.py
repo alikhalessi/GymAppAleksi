@@ -9,6 +9,7 @@ from app.database import engine
 from app.routers import (
     health,
     imports,
+    plan_change_proposals,
     planned_sets,
     program_versions,
     programs,
@@ -94,3 +95,4 @@ app.include_router(planned_sets.router)
 app.include_router(youtube_videos.router)
 app.include_router(imports.router)
 app.include_router(workout_sessions.router)
+app.include_router(plan_change_proposals.router)

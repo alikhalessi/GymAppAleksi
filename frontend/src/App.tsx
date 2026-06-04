@@ -13,6 +13,8 @@ type ProgressionSuggestion = { id: number; workout_session_id: number; workout_e
 type DashboardSummary = { total_sessions: number; completed_sessions: number; active_sessions: number; total_logged_sets: number; completed_sets: number; average_difficulty: number | null; latest_completed_session_id: number | null; latest_completed_session_started_at: string | null; latest_completed_session_finished_at: string | null; latest_program_name: string | null; latest_workout_day_name: string | null; latest_exercise_names: string[]; latest_reflection_summary: string | null; latest_progression_suggestions: string[] };
 type TraineeProfile = { id: number; display_name: string; age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; limitations: string; available_equipment: string; preferred_session_minutes: number | null; notes: string; created_at: string; updated_at: string };
 type ReadinessCheck = { id: number; energy_level: number | null; sleep_quality: number | null; soreness_level: number | null; stress_level: number | null; pain_or_limitations_today: string; available_time_minutes: number | null; readiness_score: number | null; notes: string; created_at: string };
+type PlanChangeProposal = { id: number; program_id: number | null; program_version_id: number | null; workout_day_id: number | null; workout_session_id: number | null; user_request: string; proposal_title: string; proposal_summary: string; proposed_changes_json: string; caution_notes: string; trainer_review_recommended: boolean; status: string; model_used: string; created_at: string; updated_at: string | null };
+type ProposedChange = { change_type: string; target: string; original: string; proposed: string; reason: string; risk_or_caution: string };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
@@ -21,7 +23,7 @@ type AIParsedPlan = { program: { name: string; goal: string; duration_weeks: num
 type ImportAnalysis = { parsed_plan: AIParsedPlan; overall_confidence: number; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
 type ReadinessProfile = { age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; energy_level: number; sleep_quality: number; soreness_level: number; stress_level: number; pain_or_limitations: string; available_equipment: string; session_time_limit_minutes: number | null; difficulty_preference: string; extra_notes: string };
 type EnhancementResponse = { adjusted_plan: AIParsedPlan; changes: { day_name: string; exercise_name: string | null; change_type: string; original: string; adjusted: string; reason: string }[]; summary: string; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
-type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "programs" | "training" | "settings";
+type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "aiCoach" | "programs" | "training" | "settings";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
@@ -34,6 +36,7 @@ const navItems: { id: ActiveView; label: string; subtitle: string }[] = [
   { id: "enhance", label: "Enhance", subtitle: "readiness brain" },
   { id: "profile", label: "Profile", subtitle: "training context" },
   { id: "readiness", label: "Readiness", subtitle: "today context" },
+  { id: "aiCoach", label: "AI Coach", subtitle: "change proposals" },
   { id: "training", label: "Training", subtitle: "sets + videos" },
   { id: "programs", label: "Programs", subtitle: "library" },
   { id: "settings", label: "Settings", subtitle: "keys" },
@@ -133,6 +136,16 @@ function readinessCheckToForm(check: ReadinessCheck) {
   };
 }
 
+function parseProposalChanges(proposal: PlanChangeProposal | null): ProposedChange[] {
+  if (!proposal) return [];
+  try {
+    const parsed = JSON.parse(proposal.proposed_changes_json);
+    return Array.isArray(parsed) ? parsed as ProposedChange[] : [];
+  } catch {
+    return [];
+  }
+}
+
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -172,6 +185,11 @@ function App() {
   const [readinessCheckForm, setReadinessCheckForm] = useState(emptyReadinessCheckForm);
   const [readinessCheckLoading, setReadinessCheckLoading] = useState(false);
   const [readinessCheckSavedMessage, setReadinessCheckSavedMessage] = useState<string | null>(null);
+  const [planChangeProposals, setPlanChangeProposals] = useState<PlanChangeProposal[]>([]);
+  const [selectedPlanChangeProposal, setSelectedPlanChangeProposal] = useState<PlanChangeProposal | null>(null);
+  const [changeProposalRequestText, setChangeProposalRequestText] = useState("");
+  const [changeProposalContextNote, setChangeProposalContextNote] = useState("");
+  const [proposalLoading, setProposalLoading] = useState(false);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
@@ -188,6 +206,9 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const selectedProgram = useMemo(() => programs.find((p) => p.id === selectedProgramId) ?? null, [programs, selectedProgramId]);
+  const activeProgramVersion = useMemo(() => programVersions.find((version) => version.is_active) ?? null, [programVersions]);
+  const latestPlanChangeProposal = useMemo(() => planChangeProposals[0] ?? null, [planChangeProposals]);
+  const selectedProposalChanges = useMemo(() => parseProposalChanges(selectedPlanChangeProposal), [selectedPlanChangeProposal]);
   const selectedWorkoutDay = useMemo(() => workoutDays.find((d) => d.id === selectedWorkoutDayId) ?? null, [workoutDays, selectedWorkoutDayId]);
   const selectedExercise = useMemo(() => exercises.find((e) => e.id === selectedExerciseId) ?? null, [exercises, selectedExerciseId]);
   const selectedPlannedSet = useMemo(() => plannedSets.find((set) => set.set_number === Number(sessionSetForm.set_number)) ?? null, [plannedSets, sessionSetForm.set_number]);
@@ -271,6 +292,12 @@ function App() {
     catch (e) { setError(e instanceof Error ? e.message : "Could not load readiness check."); }
     finally { setReadinessCheckLoading(false); }
   }
+  async function loadPlanChangeProposals(programId: number | null = selectedProgramId) {
+    const path = programId === null ? "/plan-change-proposals" : `/plan-change-proposals?program_id=${programId}`;
+    const data = await api<PlanChangeProposal[]>(path);
+    setPlanChangeProposals(data);
+    setSelectedPlanChangeProposal((current) => current && data.some((proposal) => proposal.id === current.id) ? current : data[0] ?? null);
+  }
   async function loadSessionDetail(sessionId: number) {
     setError(null); setLoading("Loading session detail"); setSelectedSessionReflection(null); setSelectedSessionProgressionSuggestions([]);
     try {
@@ -320,11 +347,12 @@ function App() {
     finally { setLoading(null); setProgressionLoading(false); }
   }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); void loadLatestReadinessCheck(); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); void loadLatestReadinessCheck(); void loadPlanChangeProposals(null).catch((e) => setError(e.message)); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setProgramVersions([]); setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadProgramVersions(selectedProgramId).catch((e) => setError(e.message));
     void loadWorkoutDays(selectedProgramId).catch((e) => setError(e.message));
+    void loadPlanChangeProposals(selectedProgramId).catch((e) => setError(e.message));
   }, [selectedProgramId]);
   useEffect(() => {
     if (selectedProgramId === null || selectedWorkoutDayId === null) { setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
@@ -434,6 +462,39 @@ function App() {
     }
     catch (e) { setError(e instanceof Error ? e.message : "Could not save readiness."); }
     finally { setLoading(null); }
+  }
+  async function createPlanChangeProposal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setProposalLoading(true);
+    const payload = {
+      program_id: selectedProgramId,
+      program_version_id: activeProgramVersion?.id ?? null,
+      workout_day_id: selectedWorkoutDayId,
+      workout_session_id: activeSession?.id ?? null,
+      user_request: changeProposalRequestText.trim(),
+      context_note: changeProposalContextNote.trim(),
+    };
+    try {
+      const proposal = await api<PlanChangeProposal>("/plan-change-proposals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      setPlanChangeProposals((current) => [proposal, ...current.filter((item) => item.id !== proposal.id)]);
+      setSelectedPlanChangeProposal(proposal);
+      setChangeProposalRequestText("");
+      setChangeProposalContextNote("");
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not generate change proposal."); }
+    finally { setProposalLoading(false); }
+  }
+  async function updatePlanChangeProposalStatus(proposal: PlanChangeProposal, nextStatus: "accepted" | "rejected" | "archived") {
+    setError(null);
+    setProposalLoading(true);
+    try {
+      const updated = await api<PlanChangeProposal>(`/plan-change-proposals/${proposal.id}/status`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: nextStatus }) });
+      setPlanChangeProposals((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelectedPlanChangeProposal(updated);
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not update proposal status."); }
+    finally { setProposalLoading(false); }
   }
   async function analyzeImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setEnhancement(null); setImportAnalysis(null); setLoading("Extracting plan");
@@ -704,6 +765,10 @@ function App() {
         <div className="list-header"><h3>Readiness Snapshot</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("readiness")}>Update readiness</button></div>
         {latestReadinessCheck ? <div className="dashboard-summary-grid compact-summary-grid"><article className="metric-card"><span>Score</span><strong>{latestReadinessCheck.readiness_score === null ? "not scored" : `${latestReadinessCheck.readiness_score}/10`}</strong></article><article className="metric-card"><span>Energy</span><strong>{latestReadinessCheck.energy_level ?? "not set"}</strong></article><article className="metric-card"><span>Sleep</span><strong>{latestReadinessCheck.sleep_quality ?? "not set"}</strong></article><article className="metric-card"><span>Saved</span><strong>{new Date(latestReadinessCheck.created_at).toLocaleDateString()}</strong></article></div> : <p className="dashboard-empty-state">No readiness check saved yet. You can still start training.</p>}
       </section>
+      <section className="program-list dashboard-insight-card">
+        <div className="list-header"><h3>Latest AI Proposal</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("aiCoach")}>Open AI Coach</button></div>
+        {latestPlanChangeProposal ? <><p><strong>{latestPlanChangeProposal.proposal_title || "Untitled proposal"}</strong></p><p>Status: {latestPlanChangeProposal.status}</p><p>{latestPlanChangeProposal.proposal_summary}</p></> : <p className="dashboard-empty-state">No change proposals yet.</p>}
+      </section>
       <section className="program-list profile-snapshot">
         <div className="list-header"><h3>Profile Snapshot</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("profile")}>Edit profile</button></div>
         {traineeProfile && (traineeProfile.display_name || traineeProfile.primary_goal || traineeProfile.training_experience || traineeProfile.bmi !== null) ? <div className="dashboard-summary-grid compact-summary-grid"><article className="metric-card"><span>Name</span><strong>{traineeProfile.display_name || "not set"}</strong></article><article className="metric-card"><span>Goal</span><strong>{traineeProfile.primary_goal || "not set"}</strong></article><article className="metric-card"><span>Experience</span><strong>{traineeProfile.training_experience || "not set"}</strong></article><article className="metric-card"><span>BMI context</span><strong>{traineeProfile.bmi === null ? "not set" : traineeProfile.bmi}</strong></article></div> : <p className="dashboard-empty-state">Add your profile to improve training context.</p>}
@@ -881,6 +946,10 @@ function App() {
     </section>;
   }
 
+  function renderAiCoachView() {
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">AI Coach</p><h2>Change Proposal Chat</h2></div><p>AI creates proposals only. It does not modify your workout plan.</p></div><div className="program-grid coach-panel"><form className="program-form" onSubmit={createPlanChangeProposal}><h3>Ask for a change</h3><p className="context-note">Status changes do not rewrite the program yet.</p><div className="proposal-context-card"><p><strong>Program:</strong> {selectedProgram?.name ?? "not selected"}</p><p><strong>Workout day:</strong> {selectedWorkoutDay?.name ?? "not selected"}</p><p><strong>Active version:</strong> {activeProgramVersion ? `${activeProgramVersion.version_label || "Unnamed version"} (#${activeProgramVersion.id})` : "not available"}</p><p><strong>Readiness:</strong> {latestReadinessCheck?.readiness_score === null || latestReadinessCheck?.readiness_score === undefined ? "not recorded" : `${latestReadinessCheck.readiness_score}/10`}</p><p><strong>Profile:</strong> {traineeProfile?.display_name || traineeProfile?.primary_goal || traineeProfile?.training_experience ? `${traineeProfile.display_name || "unnamed"} - ${traineeProfile.primary_goal || "goal not set"}` : "not set"}</p></div><label>What do you want to change?<textarea placeholder="Make today easier because my energy is low." value={changeProposalRequestText} onChange={(e) => setChangeProposalRequestText(e.target.value)} /></label><label>Optional context note<textarea placeholder="Anything the proposal should consider, without changing the saved plan." value={changeProposalContextNote} onChange={(e) => setChangeProposalContextNote(e.target.value)} /></label><button className="primary-button" disabled={!changeProposalRequestText.trim() || proposalLoading || loading !== null} type="submit">{proposalLoading ? "Generating proposal" : "Generate proposal"}</button></form><div className="program-list"><div className="list-header"><h3>Recent proposals</h3><button className="secondary-button compact-button" type="button" onClick={() => void loadPlanChangeProposals()}>Refresh</button></div>{planChangeProposals.length === 0 ? <p className="empty-state">No change proposals yet.</p> : <div className="program-cards">{planChangeProposals.map((proposal) => <article className={`proposal-card${selectedPlanChangeProposal?.id === proposal.id ? " selected-card" : ""}`} key={proposal.id}><div><h4>{proposal.proposal_title || "Untitled proposal"}</h4><p>{proposal.proposal_summary || proposal.user_request}</p><span className="proposal-status-pill">{proposal.status}</span></div><div className="card-actions"><button className="secondary-button compact-button" type="button" onClick={() => setSelectedPlanChangeProposal(proposal)}>View</button></div></article>)}</div>}</div></div>{selectedPlanChangeProposal ? <div className="program-list proposal-detail-panel"><div className="list-header"><div><h3>{selectedPlanChangeProposal.proposal_title || "Selected Proposal"}</h3><p>Status: <span className="proposal-status-pill">{selectedPlanChangeProposal.status}</span></p></div>{selectedPlanChangeProposal.trainer_review_recommended ? <span className="proposal-warning-pill">Trainer review recommended</span> : null}</div><p>{selectedPlanChangeProposal.proposal_summary}</p><p><strong>User request:</strong> {selectedPlanChangeProposal.user_request}</p><p><strong>Caution notes:</strong> {selectedPlanChangeProposal.caution_notes || "No caution notes returned."}</p><p><strong>Model:</strong> {selectedPlanChangeProposal.model_used || "not recorded"} · {new Date(selectedPlanChangeProposal.created_at).toLocaleString()}</p><div className="proposal-change-grid">{selectedProposalChanges.length === 0 ? <p className="empty-state">No structured changes were returned.</p> : selectedProposalChanges.map((change, index) => <article className="proposal-change-card" key={`${change.target}-${index}`}><div className="proposal-card-header"><h4>{change.target || "Target not specified"}</h4><span>{change.change_type || "change"}</span></div><p><strong>Original:</strong> {change.original}</p><p><strong>Proposed:</strong> {change.proposed}</p><p><strong>Reason:</strong> {change.reason}</p><p><strong>Risk/caution:</strong> {change.risk_or_caution}</p></article>)}</div><p className="context-note">Status changes do not rewrite the program yet.</p><div className="form-actions"><button className="primary-button" disabled={proposalLoading || selectedPlanChangeProposal.status === "accepted"} type="button" onClick={() => void updatePlanChangeProposalStatus(selectedPlanChangeProposal, "accepted")}>Mark accepted</button><button className="secondary-button" disabled={proposalLoading || selectedPlanChangeProposal.status === "rejected"} type="button" onClick={() => void updatePlanChangeProposalStatus(selectedPlanChangeProposal, "rejected")}>Mark rejected</button><button className="danger-button" disabled={proposalLoading || selectedPlanChangeProposal.status === "archived"} type="button" onClick={() => void updatePlanChangeProposalStatus(selectedPlanChangeProposal, "archived")}>Archive</button></div></div> : null}</section>;
+  }
+
   function renderSettingsView() {
     return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Settings</p><h2>API Keys & Configuration</h2></div><p>Settings are now utility controls, not the product’s front door.</p></div><div className="program-grid"><form className="program-form" onSubmit={saveOpenAIKey}><h3>OpenAI access</h3><p className="muted">Status: {openAIKeyStatus.configured ? `Configured from ${openAIKeyStatus.source} (${openAIKeyStatus.masked_key})` : "Not configured"}</p><label>API key<input autoComplete="off" type="password" value={openAIKeyInput} onChange={(e) => setOpenAIKeyInput(e.target.value)} /></label><div className="form-actions"><button className="primary-button" disabled={!openAIKeyInput.trim()} type="submit">Save key</button><button className="secondary-button" type="button" onClick={() => void loadOpenAIKeyStatus()}>Check</button><button className="danger-button" type="button" onClick={() => void clearOpenAIKey()}>Clear</button></div></form><div className="program-list"><h3>YouTube key</h3><p>YouTube search uses backend environment variable <strong>YOUTUBE_API_KEY</strong>. Keep it in PowerShell/backend environment, not in GitHub.</p></div></div></section>;
   }
@@ -895,6 +964,7 @@ function App() {
     {activeView === "enhance" ? renderEnhanceView() : null}
     {activeView === "profile" ? renderProfileView() : null}
     {activeView === "readiness" ? renderReadinessView() : null}
+    {activeView === "aiCoach" ? renderAiCoachView() : null}
     {activeView === "programs" ? renderProgramsView() : null}
     {activeView === "training" ? renderTrainingViewV2() : null}
     {activeView === "settings" ? renderSettingsView() : null}
