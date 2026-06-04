@@ -79,8 +79,35 @@ def ensure_local_sqlite_snapshot_columns() -> None:
                 )
 
 
+def ensure_local_sqlite_youtube_video_columns() -> None:
+    """Keep existing local SQLite video tables aligned with the current model."""
+
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    if "youtube_videos" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("youtube_videos")}
+    columns_to_add = {
+        "rejected": "BOOLEAN NOT NULL DEFAULT 0",
+        "preferred": "BOOLEAN NOT NULL DEFAULT 0",
+        "quality_label": "VARCHAR(80) NOT NULL DEFAULT ''",
+        "user_note": "TEXT NOT NULL DEFAULT ''",
+    }
+
+    with engine.begin() as connection:
+        for column_name, column_definition in columns_to_add.items():
+            if column_name not in existing_columns:
+                connection.execute(
+                    text(f"ALTER TABLE youtube_videos ADD COLUMN {column_name} {column_definition}"),
+                )
+
+
 models.Base.metadata.create_all(bind=engine)
 ensure_local_sqlite_snapshot_columns()
+ensure_local_sqlite_youtube_video_columns()
 
 app.include_router(health.router)
 app.include_router(settings.router)

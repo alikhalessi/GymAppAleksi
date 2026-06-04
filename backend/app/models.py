@@ -198,6 +198,10 @@ class YouTubeVideo(Base):
     thumbnail_url: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    rejected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    preferred: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    quality_label: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    user_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="youtube_videos")

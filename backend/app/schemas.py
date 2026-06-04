@@ -147,6 +147,10 @@ class YouTubeVideoBase(BaseModel):
     thumbnail_url: str = Field(default="", max_length=500)
     display_order: int = Field(default=1, ge=1, le=20)
     approved: bool = True
+    rejected: bool = False
+    preferred: bool = False
+    quality_label: str = Field(default="", max_length=80)
+    user_note: str = Field(default="", max_length=2000)
 
 
 class YouTubeVideoCreate(YouTubeVideoBase):
@@ -159,6 +163,10 @@ class YouTubeVideoUpdate(BaseModel):
     thumbnail_url: str | None = Field(default=None, max_length=500)
     display_order: int | None = Field(default=None, ge=1, le=20)
     approved: bool | None = None
+    rejected: bool | None = None
+    preferred: bool | None = None
+    quality_label: str | None = Field(default=None, max_length=80)
+    user_note: str | None = Field(default=None, max_length=2000)
 
 
 class YouTubeVideoRead(YouTubeVideoBase):
