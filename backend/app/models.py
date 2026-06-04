@@ -100,6 +100,49 @@ class ReadinessCheck(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
+class PlanChangeProposal(Base):
+    """AI-generated advisory proposal that never mutates a plan by itself."""
+
+    __tablename__ = "plan_change_proposals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    program_id: Mapped[int | None] = mapped_column(
+        ForeignKey("programs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    program_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("program_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    workout_day_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workout_days.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    workout_session_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    user_request: Mapped[str] = mapped_column(Text, nullable=False)
+    proposal_title: Mapped[str] = mapped_column(String(160), nullable=False, default="")
+    proposal_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    proposed_changes_json: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    caution_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    trainer_review_recommended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="draft")
+    model_used: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    program: Mapped["Program | None"] = relationship()
+    program_version: Mapped["ProgramVersion | None"] = relationship()
+    workout_day: Mapped["WorkoutDay | None"] = relationship()
+    workout_session: Mapped["WorkoutSession | None"] = relationship()
+
+
 class WorkoutDay(Base):
     """A named training day inside a workout program."""
 
@@ -328,6 +371,7 @@ __all__ = [
     "Base",
     "TraineeProfile",
     "ReadinessCheck",
+    "PlanChangeProposal",
     "Program",
     "WorkoutDay",
     "WorkoutExercise",

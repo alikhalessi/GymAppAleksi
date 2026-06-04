@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -236,6 +237,42 @@ class ReadinessCheckRead(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+PlanChangeProposalStatus = Literal["draft", "accepted", "rejected", "archived"]
+
+
+class PlanChangeProposalRequest(BaseModel):
+    program_id: int | None = Field(default=None, ge=1)
+    program_version_id: int | None = Field(default=None, ge=1)
+    workout_day_id: int | None = Field(default=None, ge=1)
+    workout_session_id: int | None = Field(default=None, ge=1)
+    user_request: str = Field(..., min_length=3, max_length=4000)
+    context_note: str = Field(default="", max_length=4000)
+
+
+class PlanChangeProposalRead(BaseModel):
+    id: int
+    program_id: int | None
+    program_version_id: int | None
+    workout_day_id: int | None
+    workout_session_id: int | None
+    user_request: str
+    proposal_title: str
+    proposal_summary: str
+    proposed_changes_json: str
+    caution_notes: str
+    trainer_review_recommended: bool
+    status: str
+    model_used: str
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class PlanChangeProposalStatusUpdate(BaseModel):
+    status: PlanChangeProposalStatus
 
 
 class WorkoutPlanImportRequest(BaseModel):
