@@ -291,9 +291,6 @@ def get_session_progression_suggestions(
         db.scalars(
             select(models.ProgressionSuggestion)
             .where(models.ProgressionSuggestion.workout_session_id == session.id)
-            .order_by(
-                models.ProgressionSuggestion.exercise_name_snapshot.asc(),
-                models.ProgressionSuggestion.id.asc(),
-            )
+            .order_by(models.ProgressionSuggestion.id.asc())
         )
     )
