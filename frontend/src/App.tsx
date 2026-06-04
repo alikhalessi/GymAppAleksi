@@ -13,7 +13,8 @@ type ProgressionSuggestion = { id: number; workout_session_id: number; workout_e
 type DashboardSummary = { total_sessions: number; completed_sessions: number; active_sessions: number; total_logged_sets: number; completed_sets: number; average_difficulty: number | null; latest_completed_session_id: number | null; latest_completed_session_started_at: string | null; latest_completed_session_finished_at: string | null; latest_program_name: string | null; latest_workout_day_name: string | null; latest_exercise_names: string[]; latest_reflection_summary: string | null; latest_progression_suggestions: string[] };
 type TraineeProfile = { id: number; display_name: string; age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; limitations: string; available_equipment: string; preferred_session_minutes: number | null; notes: string; created_at: string; updated_at: string };
 type ReadinessCheck = { id: number; energy_level: number | null; sleep_quality: number | null; soreness_level: number | null; stress_level: number | null; pain_or_limitations_today: string; available_time_minutes: number | null; readiness_score: number | null; notes: string; created_at: string };
-type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
+type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved?: boolean; rejected?: boolean; preferred?: boolean; quality_label?: string; user_note?: string; created_at: string };
+type YouTubeQualityForm = { quality_label: string; user_note: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
 type AIParsedWorkoutDay = { name: string; day_order: number; exercises: AIParsedExercise[] };
@@ -141,6 +142,7 @@ function App() {
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [plannedSets, setPlannedSets] = useState<PlannedSet[]>([]);
   const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
+  const [youtubeQualityForms, setYoutubeQualityForms] = useState<Record<number, YouTubeQualityForm>>({});
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null);
   const [selectedWorkoutDayId, setSelectedWorkoutDayId] = useState<number | null>(null);
   const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
@@ -246,7 +248,17 @@ function App() {
     setSelectedExerciseId((current) => current && data.some((e) => e.id === current) ? current : data[0]?.id ?? null);
   }
   async function loadPlannedSets(exerciseId: number) { setPlannedSets(await api<PlannedSet[]>(`/exercises/${exerciseId}/planned-sets`)); }
-  async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
+  async function loadYouTubeVideos(exerciseId: number) {
+    const videos = await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`);
+    setYoutubeVideos(videos);
+    setYoutubeQualityForms(Object.fromEntries(videos.map((video) => [
+      video.id,
+      {
+        quality_label: video.quality_label ?? "",
+        user_note: video.user_note ?? "",
+      },
+    ])));
+  }
   async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
   async function loadDashboardSummary() { setDashboardSummary(await api<DashboardSummary>("/sessions/dashboard-summary")); }
   async function loadTraineeProfile() {
@@ -502,6 +514,43 @@ function App() {
     finally { setLoading(null); }
   }
 
+  function updateYouTubeQualityForm(videoId: number, updates: Partial<YouTubeQualityForm>) {
+    setYoutubeQualityForms((current) => ({
+      ...current,
+      [videoId]: {
+        quality_label: current[videoId]?.quality_label ?? "",
+        user_note: current[videoId]?.user_note ?? "",
+        ...updates,
+      },
+    }));
+  }
+
+  async function updateYouTubeVideo(video: YouTubeVideo, updates: Partial<YouTubeVideo>) {
+    if (selectedExerciseId === null) return;
+    setError(null);
+    setLoading("Updating YouTube video");
+    try {
+      const saved = await api<YouTubeVideo>(`/exercises/${selectedExerciseId}/youtube-videos/${video.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      setYoutubeVideos((current) => current.map((item) => {
+        if (item.id === saved.id) return saved;
+        return saved.preferred ? { ...item, preferred: false } : item;
+      }));
+      setYoutubeQualityForms((current) => ({
+        ...current,
+        [saved.id]: {
+          quality_label: saved.quality_label ?? "",
+          user_note: saved.user_note ?? "",
+        },
+      }));
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not update YouTube video."); }
+    finally { setLoading(null); }
+  }
+
   async function startWorkoutSession() {
     if (selectedProgramId === null || selectedWorkoutDayId === null) return;
     setError(null); setSessionFinishedMessage(null); setRestSuggestionSeconds(null); setRestTimerSeconds(null); setRestTimerRunning(false); setRestTimerMessage(null); setLoading("Starting session");
@@ -666,7 +715,7 @@ function App() {
       };
     });
   }
-  function selectExercise(exercise: WorkoutExercise) { setSelectedExerciseId(exercise.id); setPlannedSetForm({ set_number: "1", target_reps: exercise.reps, suggested_weight: "", weight_unit: "kg", note: "" }); setSessionSetForm({ set_number: "1", actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: "1" }); }
+  function selectExercise(exercise: WorkoutExercise) { setSelectedExerciseId(exercise.id); setPlannedSetForm({ set_number: "1", target_reps: exercise.reps, suggested_weight: "", weight_unit: "kg", note: "" }); setSessionSetForm({ set_number: "1", actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: "1" }); setYoutubeQualityForms({}); }
   function renderPlan(plan: AIParsedPlan) { return <div className="program-cards">{plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.name}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.notes ? `— ${ex.notes}` : ""}</p>)}</div></article>)}</div>; }
 
   function renderDashboard() {
@@ -877,7 +926,57 @@ function App() {
       <div className="program-grid"><form className="program-form" onSubmit={handleWorkoutDaySubmit}><h3>{editingWorkoutDayId ? "Edit day" : "Add day"}</h3><label>Day name<input disabled={selectedProgramId === null} value={workoutDayForm.name} onChange={(e) => setWorkoutDayForm({ ...workoutDayForm, name: e.target.value })} /></label><label>Order<input disabled={selectedProgramId === null} type="number" value={workoutDayForm.day_order} onChange={(e) => setWorkoutDayForm({ ...workoutDayForm, day_order: e.target.value })} /></label><button className="primary-button" disabled={selectedProgramId === null} type="submit">{editingWorkoutDayId ? "Save day" : "Add day"}</button></form><div className="program-list"><h3>Days</h3><div className="program-cards">{workoutDays.map((d) => <article className={`program-card${selectedWorkoutDayId === d.id ? " selected-card" : ""}`} key={d.id}><div><h4>{d.name}</h4><p>Order: {d.day_order}</p></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => setSelectedWorkoutDayId(d.id)} type="button">{selectedWorkoutDayId === d.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingWorkoutDayId(d.id); setWorkoutDayForm({ name: d.name, day_order: String(d.day_order) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteWorkoutDay(d.id)} type="button">Delete</button></div></article>)}</div></div></div>
       <div className="program-grid"><form className="program-form" onSubmit={handleExerciseSubmit}><h3>{editingExerciseId ? "Edit exercise" : "Add exercise"}</h3><label>Movement<input disabled={selectedWorkoutDayId === null} value={exerciseForm.movement_name} onChange={(e) => setExerciseForm({ ...exerciseForm, movement_name: e.target.value })} /></label><div className="inline-fields"><label>Sets<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.sets} onChange={(e) => setExerciseForm({ ...exerciseForm, sets: e.target.value })} /></label><label>Reps<input disabled={selectedWorkoutDayId === null} value={exerciseForm.reps} onChange={(e) => setExerciseForm({ ...exerciseForm, reps: e.target.value })} /></label></div><div className="inline-fields"><label>Rest seconds<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.rest_seconds} onChange={(e) => setExerciseForm({ ...exerciseForm, rest_seconds: e.target.value })} /></label><label>Order<input disabled={selectedWorkoutDayId === null} type="number" value={exerciseForm.exercise_order} onChange={(e) => setExerciseForm({ ...exerciseForm, exercise_order: e.target.value })} /></label></div><label>Notes<textarea disabled={selectedWorkoutDayId === null} value={exerciseForm.notes} onChange={(e) => setExerciseForm({ ...exerciseForm, notes: e.target.value })} /></label><button className="primary-button" disabled={selectedWorkoutDayId === null} type="submit">{editingExerciseId ? "Save exercise" : "Add exercise"}</button></form><div className="program-list"><h3>Exercises {selectedWorkoutDay ? `for ${selectedWorkoutDay.name}` : ""}</h3><div className="program-cards">{exercises.map((e) => <article className={`program-card exercise-card${selectedExerciseId === e.id ? " selected-card" : ""}`} key={e.id}><div><h4>{e.exercise_order}. {e.movement_name}</h4><p>{e.sets} sets × {e.reps} · Rest {e.rest_seconds}s</p><span>{e.notes || "No notes"}</span></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => selectExercise(e)} type="button">{selectedExerciseId === e.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingExerciseId(e.id); setExerciseForm({ movement_name: e.movement_name, sets: String(e.sets), reps: e.reps, rest_seconds: String(e.rest_seconds), notes: e.notes, exercise_order: String(e.exercise_order) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteExercise(e.id)} type="button">Delete</button></div></article>)}</div></div></div>
       <div className="program-grid training-tools-section"><form className="program-form" onSubmit={handlePlannedSetSubmit}><h3>{editingPlannedSetId ? "Edit planned set" : "Add planned set weight"}</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><div className="inline-fields"><label>Set number<input disabled={selectedExerciseId === null} type="number" value={plannedSetForm.set_number} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, set_number: e.target.value })} /></label><label>Target reps<input disabled={selectedExerciseId === null} value={plannedSetForm.target_reps} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, target_reps: e.target.value })} /></label></div><div className="inline-fields"><label>Suggested weight<input disabled={selectedExerciseId === null} list="weight-options" type="number" step="0.5" value={plannedSetForm.suggested_weight} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, suggested_weight: e.target.value })} /><datalist id="weight-options"><option value="20" /><option value="30" /><option value="40" /><option value="50" /><option value="60" /><option value="80" /><option value="100" /></datalist></label><label>Unit<select disabled={selectedExerciseId === null} value={plannedSetForm.weight_unit} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, weight_unit: e.target.value })}><option value="kg">kg</option><option value="lb">lb</option><option value="bodyweight">bodyweight</option></select></label></div><label>Note<textarea disabled={selectedExerciseId === null} value={plannedSetForm.note} onChange={(e) => setPlannedSetForm({ ...plannedSetForm, note: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">{editingPlannedSetId ? "Save planned set" : "Add planned set"}</button></form><div className="program-list"><h3>Planned set weights</h3>{selectedExercise ? <p className="muted">For {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first.</p>}<div className="program-cards">{plannedSets.map((set) => <article className="program-card" key={set.id}><div><h4>Set {set.set_number}</h4><p>{set.target_reps} reps · {set.suggested_weight ?? "—"} {set.weight_unit}</p><span>{set.note || "No note"}</span></div><div className="card-actions"><button className="secondary-button compact-button" onClick={() => { setEditingPlannedSetId(set.id); setPlannedSetForm({ set_number: String(set.set_number), target_reps: set.target_reps, suggested_weight: set.suggested_weight === null ? "" : String(set.suggested_weight), weight_unit: set.weight_unit, note: set.note }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deletePlannedSet(set.id)} type="button">Delete</button></div></article>)}</div></div></div>
-      <div className="program-grid training-tools-section"><form className="program-form" onSubmit={handleYouTubeSubmit}><h3>Add YouTube example</h3><p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p><button className="secondary-button" disabled={selectedExerciseId === null || loading !== null} type="button" onClick={() => void findYouTubeExamples()}>Find YouTube examples automatically</button><label>YouTube link or video ID<input disabled={selectedExerciseId === null} placeholder="https://youtu.be/... or video ID" value={youtubeForm.input} onChange={(e) => setYoutubeForm({ ...youtubeForm, input: e.target.value })} /></label><label>Title<input disabled={selectedExerciseId === null} placeholder="Bench Press tutorial" value={youtubeForm.title} onChange={(e) => setYoutubeForm({ ...youtubeForm, title: e.target.value })} /></label><div className="inline-fields"><label>Channel<input disabled={selectedExerciseId === null} value={youtubeForm.channel_name} onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })} /></label><label>Order<input disabled={selectedExerciseId === null} type="number" value={youtubeForm.display_order} onChange={(e) => setYoutubeForm({ ...youtubeForm, display_order: e.target.value })} /></label></div><label>Thumbnail URL optional<input disabled={selectedExerciseId === null} value={youtubeForm.thumbnail_url} onChange={(e) => setYoutubeForm({ ...youtubeForm, thumbnail_url: e.target.value })} /></label><button className="primary-button" disabled={selectedExerciseId === null} type="submit">Add video manually</button></form><div className="program-list"><h3>YouTube examples</h3>{selectedExercise ? <p className="muted">Stored videos for {selectedExercise.movement_name}</p> : <p className="empty-state">Select an exercise first.</p>}<div className="video-grid">{youtubeVideos.map((video) => <article className="video-card" key={video.id}><iframe className="video-frame" src={`https://www.youtube.com/embed/${video.youtube_video_id}`} title={video.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen /><div className="video-meta"><h4>{video.title}</h4><p>{video.channel_name || "Unknown channel"}</p><button className="danger-button compact-button" onClick={() => void deleteYouTubeVideo(video.id)} type="button">Remove</button></div></article>)}</div></div></div>
+      <div className="program-grid training-tools-section">
+        <form className="program-form" onSubmit={handleYouTubeSubmit}>
+          <h3>Add YouTube example</h3>
+          <p className="muted">Selected exercise: {selectedExercise ? selectedExercise.movement_name : "none"}</p>
+          <button className="secondary-button" disabled={selectedExerciseId === null || loading !== null} type="button" onClick={() => void findYouTubeExamples()}>Find YouTube examples automatically</button>
+          <label>YouTube link or video ID<input disabled={selectedExerciseId === null} placeholder="https://youtu.be/... or video ID" value={youtubeForm.input} onChange={(e) => setYoutubeForm({ ...youtubeForm, input: e.target.value })} /></label>
+          <label>Title<input disabled={selectedExerciseId === null} placeholder="Bench Press tutorial" value={youtubeForm.title} onChange={(e) => setYoutubeForm({ ...youtubeForm, title: e.target.value })} /></label>
+          <div className="inline-fields"><label>Channel<input disabled={selectedExerciseId === null} value={youtubeForm.channel_name} onChange={(e) => setYoutubeForm({ ...youtubeForm, channel_name: e.target.value })} /></label><label>Order<input disabled={selectedExerciseId === null} type="number" value={youtubeForm.display_order} onChange={(e) => setYoutubeForm({ ...youtubeForm, display_order: e.target.value })} /></label></div>
+          <label>Thumbnail URL optional<input disabled={selectedExerciseId === null} value={youtubeForm.thumbnail_url} onChange={(e) => setYoutubeForm({ ...youtubeForm, thumbnail_url: e.target.value })} /></label>
+          <button className="primary-button" disabled={selectedExerciseId === null} type="submit">Add video manually</button>
+        </form>
+        <div className="program-list">
+          <h3>YouTube examples</h3>
+          {selectedExercise ? <p className="muted">Stored videos for {selectedExercise.movement_name}. Videos are examples only; use judgment and trainer guidance when needed.</p> : <p className="empty-state">Select an exercise first.</p>}
+          {selectedExercise && youtubeVideos.length === 0 ? <p className="empty-state">No videos attached yet. Add one manually or search examples.</p> : null}
+          <div className="video-grid">{youtubeVideos.map((video) => {
+            const qualityForm = youtubeQualityForms[video.id] ?? { quality_label: video.quality_label ?? "", user_note: video.user_note ?? "" };
+            const approved = video.approved ?? true;
+            const rejected = video.rejected ?? false;
+            const preferred = video.preferred ?? false;
+            return (
+              <article className={`video-card${rejected ? " rejected-video" : ""}`} key={video.id}>
+                <iframe className="video-frame" src={`https://www.youtube.com/embed/${video.youtube_video_id}`} title={video.title} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                <div className="video-meta">
+                  <div>
+                    <h4>{video.title}</h4>
+                    <p>{video.channel_name || "Unknown channel"}</p>
+                  </div>
+                  <div className="video-status-row">
+                    <span className={`video-status-pill${approved ? " approved-pill" : ""}`}>{approved ? "Approved" : "Not approved"}</span>
+                    {rejected ? <span className="video-status-pill rejected-pill">Rejected</span> : null}
+                    {preferred ? <span className="video-status-pill preferred-pill">Preferred</span> : null}
+                    {video.quality_label ? <span className="video-status-pill">{video.quality_label}</span> : null}
+                  </div>
+                  <div className="card-actions">
+                    <button className="secondary-button compact-button" disabled={preferred || loading !== null} onClick={() => void updateYouTubeVideo(video, { preferred: true, rejected: false, approved: true })} type="button">Preferred</button>
+                    <button className="secondary-button compact-button" disabled={approved && !rejected || loading !== null} onClick={() => void updateYouTubeVideo(video, { approved: true, rejected: false })} type="button">Approve</button>
+                    <button className="danger-button compact-button" disabled={rejected || loading !== null} onClick={() => void updateYouTubeVideo(video, { rejected: true, approved: false, preferred: false })} type="button">Reject</button>
+                    <button className="danger-button compact-button" onClick={() => void deleteYouTubeVideo(video.id)} type="button">Remove</button>
+                  </div>
+                  <div className="video-quality-controls">
+                    <label>Quality label<select value={qualityForm.quality_label} onChange={(event) => updateYouTubeQualityForm(video.id, { quality_label: event.target.value })}><option value="">No label</option><option value="Good technique">Good technique</option><option value="Beginner friendly">Beginner friendly</option><option value="Advanced">Advanced</option><option value="Needs review">Needs review</option><option value="Not relevant">Not relevant</option></select></label>
+                    <label>Reviewer note<textarea className="video-note" value={qualityForm.user_note} onChange={(event) => updateYouTubeQualityForm(video.id, { user_note: event.target.value })} /></label>
+                    <button className="primary-button compact-button" disabled={loading !== null} onClick={() => void updateYouTubeVideo(video, { quality_label: qualityForm.quality_label.trim(), user_note: qualityForm.user_note.trim() })} type="button">Save quality</button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}</div>
+        </div>
+      </div>
     </section>;
   }
 

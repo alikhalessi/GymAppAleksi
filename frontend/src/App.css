@@ -1068,6 +1068,11 @@ select:focus-visible {
   background: #0b1610;
 }
 
+.rejected-video {
+  border: 2px solid #a8392b;
+  opacity: 0.82;
+}
+
 .video-frame {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -1089,6 +1094,54 @@ select:focus-visible {
 .video-meta p {
   margin: 0;
   color: #d3eadb;
+}
+
+.video-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.video-status-pill {
+  border-radius: 999px;
+  background: rgba(245, 255, 247, 0.12);
+  color: #eaffef;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.35rem 0.55rem;
+}
+
+.approved-pill {
+  background: #d9f5df;
+  color: #155325;
+}
+
+.preferred-pill {
+  background: #fff2ba;
+  color: #5f4700;
+}
+
+.rejected-pill {
+  background: #ffd8d3;
+  color: #7d241b;
+}
+
+.video-quality-controls {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.video-quality-controls label {
+  color: #eaffef;
+}
+
+.video-quality-controls select,
+.video-quality-controls textarea {
+  background: #f8fff9;
+}
+
+.video-note {
+  min-height: 80px;
 }
 
 .warning-pill {

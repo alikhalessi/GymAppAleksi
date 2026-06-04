@@ -2,7 +2,7 @@ import os
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -37,6 +37,20 @@ def get_existing_youtube_ids(exercise_id: int, db: Session) -> set[str]:
     )
 
 
+def assert_youtube_video_is_new(exercise_id: int, youtube_video_id: str, db: Session) -> None:
+    existing = db.scalar(
+        select(models.YouTubeVideo.id).where(
+            models.YouTubeVideo.workout_exercise_id == exercise_id,
+            models.YouTubeVideo.youtube_video_id == youtube_video_id,
+        )
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="YouTube video already exists for this exercise.",
+        )
+
+
 @router.post("", response_model=schemas.YouTubeVideoRead, status_code=status.HTTP_201_CREATED)
 def create_youtube_video(
     exercise_id: int,
@@ -44,7 +58,18 @@ def create_youtube_video(
     db: Session = Depends(get_db),
 ) -> models.YouTubeVideo:
     get_exercise_or_404(exercise_id, db)
-    video = models.YouTubeVideo(workout_exercise_id=exercise_id, **video_in.model_dump())
+    assert_youtube_video_is_new(exercise_id, video_in.youtube_video_id, db)
+    video_data = video_in.model_dump()
+    if video_data.get("preferred") is True:
+        db.execute(
+            update(models.YouTubeVideo)
+            .where(models.YouTubeVideo.workout_exercise_id == exercise_id)
+            .values(preferred=False)
+        )
+    if video_data.get("rejected") is True:
+        video_data["approved"] = False
+        video_data["preferred"] = False
+    video = models.YouTubeVideo(workout_exercise_id=exercise_id, **video_data)
     db.add(video)
     db.commit()
     db.refresh(video)
@@ -119,6 +144,10 @@ def search_and_save_youtube_videos(
             thumbnail_url=thumbnail_url,
             display_order=current_count + len(saved_videos) + 1,
             approved=True,
+            rejected=False,
+            preferred=False,
+            quality_label="",
+            user_note="",
         )
         db.add(video)
         saved_videos.append(video)
@@ -156,6 +185,21 @@ def update_youtube_video(
     get_exercise_or_404(exercise_id, db)
     video = get_video_or_404(exercise_id, video_id, db)
     updates = video_in.model_dump(exclude_unset=True)
+    if updates.get("preferred") is True:
+        db.execute(
+            update(models.YouTubeVideo)
+            .where(
+                models.YouTubeVideo.workout_exercise_id == exercise_id,
+                models.YouTubeVideo.id != video_id,
+            )
+            .values(preferred=False)
+        )
+    if updates.get("rejected") is True and "approved" not in updates:
+        updates["approved"] = False
+    if updates.get("rejected") is True and "preferred" not in updates:
+        updates["preferred"] = False
+    if updates.get("approved") is True and "rejected" not in updates:
+        updates["rejected"] = False
     for field, value in updates.items():
         setattr(video, field, value)
     db.add(video)
