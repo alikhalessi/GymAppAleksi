@@ -10,6 +10,7 @@ type WorkoutSession = { id: number; program_id: number; workout_day_id: number; 
 type SessionReflection = { id: number; workout_session_id: number; summary: string; what_went_well: string; what_was_difficult: string; next_session_suggestion: string; caution_flags: string; trainer_review_recommended: boolean; model_used: string; created_at: string };
 type ProgressionSuggestion = { id: number; workout_session_id: number; workout_exercise_id: number | null; exercise_name_snapshot: string; suggestion_type: string; suggested_weight: number | null; weight_unit: string; suggested_reps: string; rationale: string; confidence: string; created_at: string };
 type DashboardSummary = { total_sessions: number; completed_sessions: number; active_sessions: number; total_logged_sets: number; completed_sets: number; average_difficulty: number | null; latest_completed_session_id: number | null; latest_completed_session_started_at: string | null; latest_completed_session_finished_at: string | null; latest_program_name: string | null; latest_workout_day_name: string | null; latest_exercise_names: string[]; latest_reflection_summary: string | null; latest_progression_suggestions: string[] };
+type TraineeProfile = { id: number; display_name: string; age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; limitations: string; available_equipment: string; preferred_session_minutes: number | null; notes: string; created_at: string; updated_at: string };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
@@ -18,15 +19,17 @@ type AIParsedPlan = { program: { name: string; goal: string; duration_weeks: num
 type ImportAnalysis = { parsed_plan: AIParsedPlan; overall_confidence: number; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
 type ReadinessProfile = { age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; energy_level: number; sleep_quality: number; soreness_level: number; stress_level: number; pain_or_limitations: string; available_equipment: string; session_time_limit_minutes: number | null; difficulty_preference: string; extra_notes: string };
 type EnhancementResponse = { adjusted_plan: AIParsedPlan; changes: { day_name: string; exercise_name: string | null; change_type: string; original: string; adjusted: string; reason: string }[]; summary: string; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
-type ActiveView = "dashboard" | "import" | "enhance" | "programs" | "training" | "settings";
+type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "programs" | "training" | "settings";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
 const defaultReadiness: ReadinessProfile = { age: 45, sex: "", height_cm: 167, weight_kg: 98, bmi: 35.1, training_experience: "intermediate", primary_goal: "strength and fat loss", energy_level: 7, sleep_quality: 7, soreness_level: 4, stress_level: 5, pain_or_limitations: "", available_equipment: "full gym", session_time_limit_minutes: 75, difficulty_preference: "moderate", extra_notes: "" };
+const emptyProfileForm = { display_name: "", age: "", sex: "", height_cm: "", weight_kg: "", training_experience: "", primary_goal: "", limitations: "", available_equipment: "", preferred_session_minutes: "", notes: "" };
 const navItems: { id: ActiveView; label: string; subtitle: string }[] = [
   { id: "dashboard", label: "Dashboard", subtitle: "mission control" },
   { id: "import", label: "Import", subtitle: "extract chaos" },
   { id: "enhance", label: "Enhance", subtitle: "readiness brain" },
+  { id: "profile", label: "Profile", subtitle: "training context" },
   { id: "training", label: "Training", subtitle: "sets + videos" },
   { id: "programs", label: "Programs", subtitle: "library" },
   { id: "settings", label: "Settings", subtitle: "keys" },
@@ -98,6 +101,22 @@ function formatSuggestionType(type: string): string {
   return labels[type] ?? type.replace(/_/g, " ");
 }
 
+function profileToForm(profile: TraineeProfile) {
+  return {
+    display_name: profile.display_name,
+    age: profile.age === null ? "" : String(profile.age),
+    sex: profile.sex,
+    height_cm: profile.height_cm === null ? "" : String(profile.height_cm),
+    weight_kg: profile.weight_kg === null ? "" : String(profile.weight_kg),
+    training_experience: profile.training_experience,
+    primary_goal: profile.primary_goal,
+    limitations: profile.limitations,
+    available_equipment: profile.available_equipment,
+    preferred_session_minutes: profile.preferred_session_minutes === null ? "" : String(profile.preferred_session_minutes),
+    notes: profile.notes,
+  };
+}
+
 function App() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [programs, setPrograms] = useState<Program[]>([]);
@@ -128,6 +147,10 @@ function App() {
   const [readiness, setReadiness] = useState<ReadinessProfile>(defaultReadiness);
   const [enhancement, setEnhancement] = useState<EnhancementResponse | null>(null);
   const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null);
+  const [traineeProfile, setTraineeProfile] = useState<TraineeProfile | null>(null);
+  const [traineeProfileForm, setTraineeProfileForm] = useState(emptyProfileForm);
+  const [profileSavedMessage, setProfileSavedMessage] = useState<string | null>(null);
+  const [profileAppliedOnLoad, setProfileAppliedOnLoad] = useState(false);
   const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WorkoutSession | null>(null);
@@ -201,6 +224,11 @@ function App() {
   async function loadYouTubeVideos(exerciseId: number) { setYoutubeVideos(await api<YouTubeVideo[]>(`/exercises/${exerciseId}/youtube-videos`)); }
   async function loadRecentSessions() { setRecentSessions(await api<WorkoutSession[]>("/sessions/recent")); }
   async function loadDashboardSummary() { setDashboardSummary(await api<DashboardSummary>("/sessions/dashboard-summary")); }
+  async function loadTraineeProfile() {
+    const profile = await api<TraineeProfile>("/trainee-profile");
+    setTraineeProfile(profile);
+    setTraineeProfileForm(profileToForm(profile));
+  }
   async function loadSessionDetail(sessionId: number) {
     setError(null); setLoading("Loading session detail"); setSelectedSessionReflection(null); setSelectedSessionProgressionSuggestions([]);
     try {
@@ -250,7 +278,7 @@ function App() {
     finally { setLoading(null); setProgressionLoading(false); }
   }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadWorkoutDays(selectedProgramId).catch((e) => setError(e.message));
@@ -265,6 +293,22 @@ function App() {
     void loadYouTubeVideos(selectedExerciseId).catch((e) => setError(e.message));
   }, [selectedExerciseId]);
   useEffect(() => { setReadiness((current) => ({ ...current, bmi: computedBmi })); }, [computedBmi]);
+  useEffect(() => {
+    if (!traineeProfile || profileAppliedOnLoad) return;
+    const stillDefault =
+      readiness.age === defaultReadiness.age &&
+      readiness.sex === defaultReadiness.sex &&
+      readiness.height_cm === defaultReadiness.height_cm &&
+      readiness.weight_kg === defaultReadiness.weight_kg &&
+      readiness.training_experience === defaultReadiness.training_experience &&
+      readiness.primary_goal === defaultReadiness.primary_goal &&
+      readiness.pain_or_limitations === defaultReadiness.pain_or_limitations &&
+      readiness.available_equipment === defaultReadiness.available_equipment &&
+      readiness.session_time_limit_minutes === defaultReadiness.session_time_limit_minutes &&
+      readiness.extra_notes === defaultReadiness.extra_notes;
+    if (stillDefault) applySavedProfileToReadiness(traineeProfile);
+    setProfileAppliedOnLoad(true);
+  }, [profileAppliedOnLoad, readiness, traineeProfile]);
   useEffect(() => {
     if (!restTimerRunning || restTimerSeconds === null) return;
     if (restTimerSeconds <= 0) {
@@ -297,6 +341,34 @@ function App() {
     finally { setLoading(null); }
   }
   async function clearOpenAIKey() { setError(null); setLoading("Clearing key"); try { setOpenAIKeyStatus(await api<OpenAIKeyStatus>("/settings/openai-key", { method: "DELETE" })); } catch (e) { setError(e instanceof Error ? e.message : "Could not clear key."); } finally { setLoading(null); } }
+  async function saveTraineeProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setProfileSavedMessage(null);
+    setLoading("Saving profile");
+    const payload = {
+      display_name: traineeProfileForm.display_name.trim(),
+      age: traineeProfileForm.age ? Number(traineeProfileForm.age) : null,
+      sex: traineeProfileForm.sex.trim(),
+      height_cm: traineeProfileForm.height_cm ? Number(traineeProfileForm.height_cm) : null,
+      weight_kg: traineeProfileForm.weight_kg ? Number(traineeProfileForm.weight_kg) : null,
+      training_experience: traineeProfileForm.training_experience.trim(),
+      primary_goal: traineeProfileForm.primary_goal.trim(),
+      limitations: traineeProfileForm.limitations.trim(),
+      available_equipment: traineeProfileForm.available_equipment.trim(),
+      preferred_session_minutes: traineeProfileForm.preferred_session_minutes ? Number(traineeProfileForm.preferred_session_minutes) : null,
+      notes: traineeProfileForm.notes.trim(),
+    };
+    try {
+      const saved = await api<TraineeProfile>("/trainee-profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      setTraineeProfile(saved);
+      setTraineeProfileForm(profileToForm(saved));
+      setProfileSavedMessage("Profile saved. BMI context is calculated by the backend.");
+      applySavedProfileToReadiness(saved);
+    }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not save profile."); }
+    finally { setLoading(null); }
+  }
   async function analyzeImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(null); setEnhancement(null); setImportAnalysis(null); setLoading("Extracting plan");
     try { setImportAnalysis(await api<ImportAnalysis>("/imports/workout-plan/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw_text: importText }) })); setActiveView("import"); }
@@ -489,6 +561,23 @@ function App() {
   }
 
   function updateReadiness<K extends keyof ReadinessProfile>(key: K, value: ReadinessProfile[K]) { setReadiness((current) => ({ ...current, [key]: value })); }
+  function applySavedProfileToReadiness(profile = traineeProfile) {
+    if (!profile) return;
+    setReadiness((current) => ({
+      ...current,
+      age: profile.age ?? current.age,
+      sex: profile.sex || current.sex,
+      height_cm: profile.height_cm ?? current.height_cm,
+      weight_kg: profile.weight_kg ?? current.weight_kg,
+      bmi: profile.bmi ?? current.bmi,
+      training_experience: profile.training_experience || current.training_experience,
+      primary_goal: profile.primary_goal || current.primary_goal,
+      pain_or_limitations: profile.limitations || current.pain_or_limitations,
+      available_equipment: profile.available_equipment || current.available_equipment,
+      session_time_limit_minutes: profile.preferred_session_minutes ?? current.session_time_limit_minutes,
+      extra_notes: current.extra_notes.trim() ? current.extra_notes : profile.notes,
+    }));
+  }
   function selectExercise(exercise: WorkoutExercise) { setSelectedExerciseId(exercise.id); setPlannedSetForm({ set_number: "1", target_reps: exercise.reps, suggested_weight: "", weight_unit: "kg", note: "" }); setSessionSetForm({ set_number: "1", actual_reps: "", actual_weight: "", difficulty_rating: "", notes: "" }); setYoutubeForm({ input: "", title: "", channel_name: "", thumbnail_url: "", display_order: "1" }); }
   function renderPlan(plan: AIParsedPlan) { return <div className="program-cards">{plan.workout_days.map((day) => <article className="program-card" key={`${day.day_order}-${day.name}`}><div><h4>Day {day.day_order}: {day.name}</h4>{day.exercises.map((ex) => <p key={`${day.name}-${ex.exercise_order}-${ex.movement_name}`}>{ex.exercise_order}. {ex.movement_name}: {ex.sets} × {ex.reps}, rest {ex.rest_seconds}s {ex.notes ? `— ${ex.notes}` : ""}</p>)}</div></article>)}</div>; }
 
@@ -523,6 +612,10 @@ function App() {
         <h3>Quick Actions</h3>
         <div className="quick-actions"><button className="primary-button" type="button" onClick={() => setActiveView("training")}>{activeSession?.status === "active" ? "Continue training" : "Start / continue training"}</button><button className="secondary-button" type="button" onClick={() => setActiveView("import")}>Import plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("enhance")}>Enhance plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("programs")}>Open program library</button></div>
       </div>
+      <section className="program-list profile-snapshot">
+        <div className="list-header"><h3>Profile Snapshot</h3><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("profile")}>Edit profile</button></div>
+        {traineeProfile && (traineeProfile.display_name || traineeProfile.primary_goal || traineeProfile.training_experience || traineeProfile.bmi !== null) ? <div className="dashboard-summary-grid compact-summary-grid"><article className="metric-card"><span>Name</span><strong>{traineeProfile.display_name || "not set"}</strong></article><article className="metric-card"><span>Goal</span><strong>{traineeProfile.primary_goal || "not set"}</strong></article><article className="metric-card"><span>Experience</span><strong>{traineeProfile.training_experience || "not set"}</strong></article><article className="metric-card"><span>BMI context</span><strong>{traineeProfile.bmi === null ? "not set" : traineeProfile.bmi}</strong></article></div> : <p className="dashboard-empty-state">Add your profile to improve training context.</p>}
+      </section>
       <div className="section-heading"><div><p className="eyebrow">Mission control</p><h2>Today’s Training Cockpit</h2></div><p>The app now starts where the user starts: what am I doing today, how ready am I, and what is the next useful action?</p></div>
       <div className="cockpit-grid">
         <article className="mission-card primary-mission"><p className="eyebrow">Current mission</p><h3>{selectedWorkoutDay ? selectedWorkoutDay.name : "No workout day selected"}</h3><p>{selectedProgram ? selectedProgram.name : "Create or import a program to activate the cockpit."}</p><div className="form-actions"><button className="primary-button" type="button" onClick={() => setActiveView("training")}>{selectedWorkoutDay ? "Prepare session" : "Build program"}</button><button className="secondary-button" type="button" onClick={() => setActiveView("import")}>Import plan</button></div></article>
@@ -597,11 +690,15 @@ function App() {
   }
 
   function renderEnhanceView() {
-    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Enhance</p><h2>Enhance Based on Profile & Readiness</h2></div><p>Optional adjustment. BMI is context, not a verdict. Original plan remains untouched.</p></div>{!importAnalysis ? <div className="program-list"><h3>No extracted plan yet</h3><p>Import a plan first, then use this screen to adapt it based on readiness and profile.</p><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Go to Import</button></div> : <><div className="program-grid"><div className="program-form"><h3>Trainee profile</h3><div className="inline-fields"><label>Age<input type="number" value={readiness.age ?? ""} onChange={(e) => updateReadiness("age", e.target.value ? Number(e.target.value) : null)} /></label><label>Sex / optional<input value={readiness.sex} onChange={(e) => updateReadiness("sex", e.target.value)} /></label></div><div className="inline-fields"><label>Height cm<input type="number" value={readiness.height_cm ?? ""} onChange={(e) => updateReadiness("height_cm", e.target.value ? Number(e.target.value) : null)} /></label><label>Weight kg<input type="number" value={readiness.weight_kg ?? ""} onChange={(e) => updateReadiness("weight_kg", e.target.value ? Number(e.target.value) : null)} /></label></div><p className="muted">Calculated BMI: {computedBmi ?? "add height and weight"}</p><h3>Readiness</h3><div className="inline-fields"><label>Experience<input value={readiness.training_experience} onChange={(e) => updateReadiness("training_experience", e.target.value)} /></label><label>Goal<input value={readiness.primary_goal} onChange={(e) => updateReadiness("primary_goal", e.target.value)} /></label></div><div className="inline-fields"><label>Energy 1-10<input type="number" min="1" max="10" value={readiness.energy_level} onChange={(e) => updateReadiness("energy_level", Number(e.target.value))} /></label><label>Sleep 1-10<input type="number" min="1" max="10" value={readiness.sleep_quality} onChange={(e) => updateReadiness("sleep_quality", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Soreness 1-10<input type="number" min="1" max="10" value={readiness.soreness_level} onChange={(e) => updateReadiness("soreness_level", Number(e.target.value))} /></label><label>Stress 1-10<input type="number" min="1" max="10" value={readiness.stress_level} onChange={(e) => updateReadiness("stress_level", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Difficulty<input value={readiness.difficulty_preference} onChange={(e) => updateReadiness("difficulty_preference", e.target.value)} /></label><label>Time limit minutes<input type="number" value={readiness.session_time_limit_minutes ?? ""} onChange={(e) => updateReadiness("session_time_limit_minutes", e.target.value ? Number(e.target.value) : null)} /></label></div><label>Limitations / difficulties<textarea value={readiness.pain_or_limitations} onChange={(e) => updateReadiness("pain_or_limitations", e.target.value)} /></label><label>Available equipment<textarea value={readiness.available_equipment} onChange={(e) => updateReadiness("available_equipment", e.target.value)} /></label><label>Extra notes<textarea value={readiness.extra_notes} onChange={(e) => updateReadiness("extra_notes", e.target.value)} /></label><button className="primary-button" disabled={loading !== null} type="button" onClick={() => void enhancePlan()}>Enhance plan</button></div><div className="program-list"><h3>Enhancement promise</h3><p>The adjusted plan is a proposal. Save adjusted version only after review.</p></div></div>{enhancement ? <div className="program-list import-preview"><div className="list-header"><h3>Adjusted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(enhancement.adjusted_plan, "approved_adjusted_plan")}>Save adjusted plan</button></div><p>{enhancement.summary}</p>{enhancement.trainer_review_required ? <p className="warning-pill">Trainer review recommended.</p> : null}<h4>Changes</h4>{enhancement.changes.length ? <ul>{enhancement.changes.map((change, index) => <li key={`${change.day_name}-${change.change_type}-${index}`}><strong>{change.change_type}</strong> — {change.original} → {change.adjusted}. {change.reason}</li>)}</ul> : <p>No major changes proposed.</p>}{renderPlan(enhancement.adjusted_plan)}</div> : null}</>}</section>;
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Enhance</p><h2>Enhance Based on Profile & Readiness</h2></div><p>Optional adjustment. BMI is context, not a verdict. Original plan remains untouched.</p></div><div className="program-list profile-context-note"><div className="list-header"><p>Saved profile can prefill these context fields without changing a plan.</p><button className="secondary-button compact-button" disabled={!traineeProfile} type="button" onClick={() => applySavedProfileToReadiness()}>Use saved profile</button></div></div>{!importAnalysis ? <div className="program-list"><h3>No extracted plan yet</h3><p>Import a plan first, then use this screen to adapt it based on readiness and profile.</p><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Go to Import</button></div> : <><div className="program-grid"><div className="program-form"><h3>Trainee profile</h3><div className="inline-fields"><label>Age<input type="number" value={readiness.age ?? ""} onChange={(e) => updateReadiness("age", e.target.value ? Number(e.target.value) : null)} /></label><label>Sex / optional<input value={readiness.sex} onChange={(e) => updateReadiness("sex", e.target.value)} /></label></div><div className="inline-fields"><label>Height cm<input type="number" value={readiness.height_cm ?? ""} onChange={(e) => updateReadiness("height_cm", e.target.value ? Number(e.target.value) : null)} /></label><label>Weight kg<input type="number" value={readiness.weight_kg ?? ""} onChange={(e) => updateReadiness("weight_kg", e.target.value ? Number(e.target.value) : null)} /></label></div><p className="muted">Calculated BMI: {computedBmi ?? "add height and weight"}</p><h3>Readiness</h3><div className="inline-fields"><label>Experience<input value={readiness.training_experience} onChange={(e) => updateReadiness("training_experience", e.target.value)} /></label><label>Goal<input value={readiness.primary_goal} onChange={(e) => updateReadiness("primary_goal", e.target.value)} /></label></div><div className="inline-fields"><label>Energy 1-10<input type="number" min="1" max="10" value={readiness.energy_level} onChange={(e) => updateReadiness("energy_level", Number(e.target.value))} /></label><label>Sleep 1-10<input type="number" min="1" max="10" value={readiness.sleep_quality} onChange={(e) => updateReadiness("sleep_quality", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Soreness 1-10<input type="number" min="1" max="10" value={readiness.soreness_level} onChange={(e) => updateReadiness("soreness_level", Number(e.target.value))} /></label><label>Stress 1-10<input type="number" min="1" max="10" value={readiness.stress_level} onChange={(e) => updateReadiness("stress_level", Number(e.target.value))} /></label></div><div className="inline-fields"><label>Difficulty<input value={readiness.difficulty_preference} onChange={(e) => updateReadiness("difficulty_preference", e.target.value)} /></label><label>Time limit minutes<input type="number" value={readiness.session_time_limit_minutes ?? ""} onChange={(e) => updateReadiness("session_time_limit_minutes", e.target.value ? Number(e.target.value) : null)} /></label></div><label>Limitations / difficulties<textarea value={readiness.pain_or_limitations} onChange={(e) => updateReadiness("pain_or_limitations", e.target.value)} /></label><label>Available equipment<textarea value={readiness.available_equipment} onChange={(e) => updateReadiness("available_equipment", e.target.value)} /></label><label>Extra notes<textarea value={readiness.extra_notes} onChange={(e) => updateReadiness("extra_notes", e.target.value)} /></label><button className="primary-button" disabled={loading !== null} type="button" onClick={() => void enhancePlan()}>Enhance plan</button></div><div className="program-list"><h3>Enhancement promise</h3><p>The adjusted plan is a proposal. Save adjusted version only after review.</p></div></div>{enhancement ? <div className="program-list import-preview"><div className="list-header"><h3>Adjusted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(enhancement.adjusted_plan, "approved_adjusted_plan")}>Save adjusted plan</button></div><p>{enhancement.summary}</p>{enhancement.trainer_review_required ? <p className="warning-pill">Trainer review recommended.</p> : null}<h4>Changes</h4>{enhancement.changes.length ? <ul>{enhancement.changes.map((change, index) => <li key={`${change.day_name}-${change.change_type}-${index}`}><strong>{change.change_type}</strong> — {change.original} → {change.adjusted}. {change.reason}</li>)}</ul> : <p>No major changes proposed.</p>}{renderPlan(enhancement.adjusted_plan)}</div> : null}</>}</section>;
   }
 
   function renderProgramsView() {
     return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Programs</p><h2>Program Library</h2></div><p>Create manually or save from AI import/enhancement.</p></div><div className="program-grid"><form className="program-form" onSubmit={handleProgramSubmit}><h3>{editingProgramId ? "Edit program" : "Create program"}</h3><label>Program name<input value={programForm.name} onChange={(e) => setProgramForm({ ...programForm, name: e.target.value })} /></label><label>Goal<textarea value={programForm.goal} onChange={(e) => setProgramForm({ ...programForm, goal: e.target.value })} /></label><label>Duration weeks<input type="number" value={programForm.duration_weeks} onChange={(e) => setProgramForm({ ...programForm, duration_weeks: e.target.value })} /></label><button className="primary-button" type="submit">{editingProgramId ? "Save" : "Create"}</button></form><div className="program-list"><h3>Saved programs</h3><div className="program-cards">{programs.map((p) => <article className={`program-card${selectedProgramId === p.id ? " selected-card" : ""}`} key={p.id}><div><h4>{p.name}</h4><p>{p.goal}</p><span>{p.duration_weeks} weeks</span></div><div className="card-actions"><button className="primary-button compact-button" onClick={() => { setSelectedProgramId(p.id); setActiveView("dashboard"); }} type="button">{selectedProgramId === p.id ? "Selected" : "Select"}</button><button className="secondary-button compact-button" onClick={() => { setEditingProgramId(p.id); setProgramForm({ name: p.name, goal: p.goal, duration_weeks: String(p.duration_weeks) }); }} type="button">Edit</button><button className="danger-button compact-button" onClick={() => void deleteProgram(p.id)} type="button">Delete</button></div></article>)}</div></div></div></section>;
+  }
+
+  function renderProfileView() {
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Profile</p><h2>Trainee Profile</h2></div><p>Profile is used as training context. It is not a diagnosis.</p></div><div className="profile-grid"><form className="program-form profile-card" onSubmit={saveTraineeProfile}><h3>Stable training context</h3>{profileSavedMessage ? <p className="save-message">{profileSavedMessage}</p> : null}<div className="inline-fields"><label>Display name<input value={traineeProfileForm.display_name} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, display_name: e.target.value })} /></label><label>Age<input min="10" max="100" type="number" value={traineeProfileForm.age} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, age: e.target.value })} /></label></div><div className="inline-fields"><label>Sex optional<input value={traineeProfileForm.sex} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, sex: e.target.value })} /></label><label>Training experience<input value={traineeProfileForm.training_experience} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, training_experience: e.target.value })} /></label></div><div className="inline-fields"><label>Height cm<input min="80" max="250" step="0.1" type="number" value={traineeProfileForm.height_cm} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, height_cm: e.target.value })} /></label><label>Weight kg<input min="20" max="350" step="0.1" type="number" value={traineeProfileForm.weight_kg} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, weight_kg: e.target.value })} /></label></div><p className="profile-context-note">BMI context: {traineeProfile?.bmi === null || traineeProfile?.bmi === undefined ? "save height and weight to calculate" : traineeProfile.bmi}. The backend calculates this value.</p><label>Primary goal<input value={traineeProfileForm.primary_goal} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, primary_goal: e.target.value })} /></label><div className="inline-fields"><label>Preferred session minutes<input min="10" max="240" type="number" value={traineeProfileForm.preferred_session_minutes} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, preferred_session_minutes: e.target.value })} /></label><label>Available equipment<textarea value={traineeProfileForm.available_equipment} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, available_equipment: e.target.value })} /></label></div><label>Limitations<textarea value={traineeProfileForm.limitations} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, limitations: e.target.value })} /></label><label>General notes<textarea value={traineeProfileForm.notes} onChange={(e) => setTraineeProfileForm({ ...traineeProfileForm, notes: e.target.value })} /></label><button className="primary-button" disabled={loading !== null} type="submit">Save Profile</button></form><div className="program-list profile-card"><h3>How this is used</h3><p className="profile-context-note">Saved profile data can prefill the Enhance screen. It does not change workout plans automatically.</p><p><strong>Stored BMI context:</strong> {traineeProfile?.bmi ?? "not calculated"}</p><p><strong>Last saved:</strong> {traineeProfile?.updated_at ? new Date(traineeProfile.updated_at).toLocaleString() : "not saved yet"}</p><button className="secondary-button" type="button" onClick={() => applySavedProfileToReadiness()}>Use profile in Enhance form</button></div></div></section>;
   }
 
   function renderTrainingView() {
@@ -686,6 +783,7 @@ function App() {
     {activeView === "dashboard" ? renderDashboard() : null}
     {activeView === "import" ? renderImportView() : null}
     {activeView === "enhance" ? renderEnhanceView() : null}
+    {activeView === "profile" ? renderProfileView() : null}
     {activeView === "programs" ? renderProgramsView() : null}
     {activeView === "training" ? renderTrainingViewV2() : null}
     {activeView === "settings" ? renderSettingsView() : null}
@@ -693,4 +791,5 @@ function App() {
 }
 
 export default App;
+
 

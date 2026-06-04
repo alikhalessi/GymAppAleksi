@@ -149,6 +149,40 @@ class OpenAIKeyStatus(BaseModel):
     masked_key: str | None = None
 
 
+class TraineeProfileUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=120)
+    age: int | None = Field(default=None, ge=10, le=100)
+    sex: str | None = Field(default=None, max_length=40)
+    height_cm: float | None = Field(default=None, ge=80, le=250)
+    weight_kg: float | None = Field(default=None, ge=20, le=350)
+    training_experience: str | None = Field(default=None, max_length=80)
+    primary_goal: str | None = Field(default=None, max_length=200)
+    limitations: str | None = Field(default=None, max_length=6000)
+    available_equipment: str | None = Field(default=None, max_length=4000)
+    preferred_session_minutes: int | None = Field(default=None, ge=10, le=240)
+    notes: str | None = Field(default=None, max_length=12000)
+
+
+class TraineeProfileRead(BaseModel):
+    id: int
+    display_name: str
+    age: int | None
+    sex: str
+    height_cm: float | None
+    weight_kg: float | None
+    bmi: float | None
+    training_experience: str
+    primary_goal: str
+    limitations: str
+    available_equipment: str
+    preferred_session_minutes: int | None
+    notes: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class WorkoutPlanImportRequest(BaseModel):
     raw_text: str = Field(..., min_length=10, max_length=12000)
 

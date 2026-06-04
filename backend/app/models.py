@@ -31,6 +31,28 @@ class Program(Base):
     )
 
 
+class TraineeProfile(Base):
+    """Single-user trainee profile context for the local MVP."""
+
+    __tablename__ = "trainee_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sex: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bmi: Mapped[float | None] = mapped_column(Float, nullable=True)
+    training_experience: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    primary_goal: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    limitations: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    available_equipment: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    preferred_session_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
 class WorkoutDay(Base):
     """A named training day inside a workout program."""
 
@@ -257,6 +279,7 @@ class ProgressionSuggestion(Base):
 
 __all__ = [
     "Base",
+    "TraineeProfile",
     "Program",
     "WorkoutDay",
     "WorkoutExercise",

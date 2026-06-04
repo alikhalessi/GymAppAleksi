@@ -314,6 +314,37 @@ select:disabled {
   line-height: 1.55;
 }
 
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 0.8fr);
+  gap: 1.25rem;
+}
+
+.profile-card,
+.profile-snapshot {
+  min-width: 0;
+}
+
+.profile-context-note {
+  border: 1px solid rgba(31, 82, 56, 0.14);
+  border-radius: 18px;
+  background: #f6fbf7;
+  color: #334139;
+  margin: 0;
+  padding: 0.9rem;
+  line-height: 1.55;
+}
+
+.save-message {
+  border: 1px solid rgba(46, 133, 80, 0.22);
+  border-radius: 18px;
+  background: #eaf8ef;
+  color: #17452c;
+  margin: 0;
+  padding: 0.9rem;
+  font-weight: 900;
+}
+
 .mission-card {
   display: grid;
   align-content: space-between;
@@ -1037,6 +1068,7 @@ select:focus-visible {
   .program-grid,
   .cockpit-grid,
   .dashboard-summary-grid,
+  .profile-grid,
   .session-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1080,6 +1112,7 @@ select:focus-visible {
   .inline-fields,
   .cockpit-grid,
   .dashboard-summary-grid,
+  .profile-grid,
   .session-metric-grid {
     grid-template-columns: 1fr;
   }
