@@ -17,6 +17,17 @@ def create_program(
     db.add(program)
     db.commit()
     db.refresh(program)
+
+    version = models.ProgramVersion(
+        program_id=program.id,
+        version_label="Manual program",
+        version_type="manual",
+        source="manual",
+        is_active=True,
+    )
+    db.add(version)
+    db.commit()
+
     return program
 
 

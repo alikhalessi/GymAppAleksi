@@ -10,6 +10,7 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+
 class Program(Base):
     """Workout program created by a user for the MVP."""
 
@@ -29,6 +30,35 @@ class Program(Base):
         back_populates="program",
         cascade="all, delete-orphan",
     )
+    versions: Mapped[list["ProgramVersion"]] = relationship(
+        back_populates="program",
+        cascade="all, delete-orphan",
+    )
+
+
+class ProgramVersion(Base):
+    """Metadata layer tracking the provenance and version history of a workout program."""
+
+    __tablename__ = "program_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    program_id: Mapped[int] = mapped_column(
+        ForeignKey("programs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version_label: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    version_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    source: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    parent_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("program_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+    program: Mapped[Program] = relationship(back_populates="versions")
 
 
 class TraineeProfile(Base):
@@ -307,4 +337,5 @@ __all__ = [
     "SessionSet",
     "SessionReflection",
     "ProgressionSuggestion",
+    "ProgramVersion",
 ]

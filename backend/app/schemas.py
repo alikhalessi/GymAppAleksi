@@ -30,6 +30,36 @@ class ProgramRead(ProgramBase):
     model_config = {"from_attributes": True}
 
 
+class ProgramVersionBase(BaseModel):
+    version_label: str = Field(default="", max_length=120)
+    version_type: str = Field(..., max_length=80)
+    source: str = Field(default="", max_length=80)
+    parent_version_id: int | None = None
+    is_active: bool = False
+    notes: str = Field(default="", max_length=10000)
+
+
+class ProgramVersionCreate(ProgramVersionBase):
+    pass
+
+
+class ProgramVersionUpdate(BaseModel):
+    version_label: str | None = Field(default=None, max_length=120)
+    version_type: str | None = Field(default=None, max_length=80)
+    source: str | None = Field(default=None, max_length=80)
+    parent_version_id: int | None = None
+    is_active: bool | None = None
+    notes: str | None = Field(default=None, max_length=10000)
+
+
+class ProgramVersionRead(ProgramVersionBase):
+    id: int
+    program_id: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class WorkoutDayBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=120)
     day_order: int = Field(..., ge=1, le=14)
