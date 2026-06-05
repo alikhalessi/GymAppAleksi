@@ -1,243 +1,226 @@
-# SetPilot
+# SetPilot — AI Workout Operating System
 
-SetPilot is a gym workout execution app for beginner-to-intermediate gym users who want to follow structured workout programs consistently.
+SetPilot is a local Phase-1 MVP for turning messy workout plans into executable training sessions.
 
-The product focuses on helping users execute planned workouts in the gym: understand each movement through curated YouTube examples, track sets as they are completed, manage workout and rest timing, and review basic progress after each session.
+It supports AI-powered workout plan import, readiness/profile-aware enhancement, a focused workout session cockpit, set logging with a rest timer, AI session reflection, progression suggestions, and a dashboard that builds training memory from completed sessions.
 
-## Current MVP Status
+This repository is not a production SaaS deployment yet. AI suggestions are advisory, do not diagnose medical conditions, and do not silently change workout plans.
 
-This repository is in MVP feature development. The scaffold is complete and the current product slices include **Workout Program CRUD**, **Workout Days under Programs**, **Exercises under Workout Days**, **Planned Set Weights**, **Stored YouTube Examples**, **Automatic YouTube Search**, **AI Workout Plan Import**, **Readiness-Based AI Enhancement**, **In-App OpenAI Key Settings**, **Workout Session Mode**, **Set Logging**, **Rest Timer**, **Recent Sessions**, **Human-Readable Session Detail History**, **AI Session Reflection**, **Progression Suggestions**, **Trainee Profile**, **Readiness Checks**, **Program Versions**, and a **Dashboard-First MVP Flow**.
+## Current Phase-1 MVP Capabilities
 
-The current scaffold includes:
+- AI workout plan extraction from raw pasted text
+- AI workout enhancement using trainee profile and readiness context
+- Trainee profile
+- Readiness checks
+- Program versioning
+- Workout programs, days, exercises, and planned sets
+- Workout sessions
+- Set logging with actual reps, weight, difficulty, and notes
+- Rest timer
+- Session history and human-readable session detail
+- AI session reflection
+- Progression suggestions
+- Progress dashboard / training memory
+- Stored YouTube exercise videos and optional automatic YouTube search
+- Error handling and empty states for common local MVP failures
+- Demo sample workout plan and Phase-1 MVP demo flow
 
-- React + Vite + TypeScript frontend
-- FastAPI backend package
-- SQLite development database configuration
-- `GET /health` backend endpoint
-- Program CRUD endpoints under `/programs`
-- Workout day CRUD endpoints under `/programs/{program_id}/workout-days`
-- Exercise CRUD endpoints under `/programs/{program_id}/workout-days/{workout_day_id}/exercises`
-- Planned set endpoints under `/exercises/{exercise_id}/planned-sets`
-- Stored YouTube video endpoints under `/exercises/{exercise_id}/youtube-videos`
-- Automatic YouTube search endpoint under `/exercises/{exercise_id}/youtube-videos/search-and-save`
-- `GET /settings/openai-key` OpenAI key status endpoint
-- `POST /settings/openai-key` session-only OpenAI key save endpoint
-- `DELETE /settings/openai-key` session key clear endpoint
-- `POST /imports/workout-plan/analyze` AI analysis endpoint
-- `POST /imports/workout-plan/enhance` readiness-based AI enhancement endpoint
-- `POST /imports/workout-plan/save` reviewed import save endpoint
-- Workout session endpoints under `/sessions`
-- Frontend OpenAI key settings panel with masked status, save, refresh, and clear controls
-- Frontend program creation, editing, deletion, refresh, selection, and listing UI
-- Frontend workout day creation, editing, deletion, refresh, selection, and listing UI for the selected program
-- Frontend exercise creation, editing, deletion, refresh, and listing UI for the selected workout day
-- Frontend AI import panel with plain-text paste, AI preview, warnings, trainer-review flag, and save flow
-- Frontend readiness enhancement flow that preserves original plans until the user saves an adjusted version
-- Frontend planned set weights, YouTube examples, workout session mode, set logging, rest timer, recent sessions, session detail view, AI reflection controls, progression suggestion controls, profile/readiness context, and dashboard guidance
+## Tech Stack
 
-Authentication, payments, trainer dashboard, smartwatch sync, and nutrition are not included yet.
+Frontend:
 
-## MVP Scope
+- React
+- TypeScript
+- Vite
 
-The local MVP should support:
+Backend:
 
-1. Enter an OpenAI API key in the app for the current backend session.
-2. Create workout programs.
-3. Add workout days.
-4. Add exercises with movement name, sets, reps, rest seconds, and notes.
-5. Paste a plain-text workout plan and use AI to structure it.
-6. Review AI import warnings, questions, and trainer-review recommendation.
-7. Save the reviewed AI import into the program/day/exercise tables.
-8. Show up to 5 stored YouTube examples per exercise.
-9. Start a workout session.
-10. Complete sets.
-11. Use workout timer and rest timer.
-12. Save weight, reps, and difficulty rating per set.
-13. Show a post-session summary.
-14. Generate an advisory AI session reflection after completion.
-15. Show basic progression suggestions and progress analysis.
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- SQLite for the local prototype
 
-## Tech Direction
+AI / integrations:
 
-- Frontend: React, Vite, TypeScript
-- Backend: FastAPI
-- Local MVP database: SQLite with SQLAlchemy
-- Future production database: PostgreSQL
-- AI import: OpenAI API with Structured Outputs style JSON schema
-- API key handling for local MVP: session-only backend memory, with environment variable fallback
-- Charts later: Recharts
-- Authentication later: not included in Sprint 1
+- OpenAI Responses API
+- YouTube Data API
 
 ## Repository Structure
 
 ```text
 .
-|-- AGENTS.md
-|-- README.md
-|-- backend
-|   |-- README.md
-|   |-- app
-|   |   |-- database.py
-|   |   |-- main.py
-|   |   |-- models.py
-|   |   |-- routers
-|   |   |   |-- health.py
-|   |   |   |-- imports.py
-|   |   |   |-- planned_sets.py
-|   |   |   |-- programs.py
-|   |   |   |-- settings.py
-|   |   |   |-- workout_days.py
-|   |   |   |-- workout_exercises.py
-|   |   |   |-- workout_sessions.py
-|   |   |   |-- youtube_videos.py
-|   |   |-- schemas.py
-|   |   |-- services
-|   |   |   |-- __init__.py
-|   |   |   |-- ai_enhance.py
-|   |   |   |-- ai_import.py
-|   |   |   |-- runtime_settings.py
-|   |   |   |-- youtube_search.py
-|   |-- requirements.txt
-|   |-- tests
-|   |   |-- conftest.py
-|   |   |-- test_health.py
-|   |   |-- test_imports.py
-|   |   |-- test_planned_sets.py
-|   |   |-- test_programs.py
-|   |   |-- test_settings.py
-|   |   |-- test_workout_days.py
-|   |   |-- test_workout_exercises.py
-|   |   |-- test_workout_sessions.py
-|   |   |-- test_youtube_videos.py
-|-- docs
-|   |-- architecture.md
-|   |-- codex-prompts.md
-|   |-- data-model.md
-|   |-- mvp-scope.md
-|   |-- product-vision.md
-|   |-- sprint-plan.md
-|   |-- user-stories.md
-|-- frontend
-|   |-- index.html
-|   |-- package.json
-|   |-- src
-|   |   |-- App.css
-|   |   |-- App.tsx
-|   |   |-- main.tsx
-|   |-- vite.config.ts
+|-- backend/              FastAPI app, SQLAlchemy models, routers, services
+|-- backend/tests/        Pytest backend test suite
+|-- docs/                 Product, architecture, demo, and developer docs
+|-- frontend/             React + TypeScript + Vite frontend
+|-- README.md             Main project overview and setup entry point
 ```
 
-## Local Setup
+## Prerequisites
 
-Install dependencies only when you are ready to run the scaffold locally.
+- Python 3.12
+- Node.js and npm
+- Git
+- Optional OpenAI API key for AI import, enhancement, and reflection
+- Optional YouTube Data API key for automatic exercise video search
 
-### Backend
+## Backend Setup
 
 From the repository root:
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-Start backend:
-
-```bash
+python -m pytest
 uvicorn app.main:app --reload
 ```
 
-The backend runs at `http://127.0.0.1:8000`.
+Backend URL:
 
-Health check:
-
-```bash
-curl http://127.0.0.1:8000/health
+```text
+http://127.0.0.1:8000
 ```
 
-Expected response:
+FastAPI docs:
 
-```json
-{"status":"ok"}
+```text
+http://127.0.0.1:8000/docs
 ```
 
-### OpenAI API Key Setup
+## Frontend Setup
 
-The easiest local workflow is now inside the app:
-
-1. Start the backend.
-2. Start the frontend.
-3. Open the app.
-4. Paste your OpenAI API key into the **OpenAI API Key** settings card.
-5. Click **Save key for this session**.
-6. Use AI import.
-
-The key is kept only in backend memory for the current running backend process. It disappears when the backend restarts.
-
-Optional fallback: you can still use an environment variable instead of the app settings panel:
+From the repository root:
 
 ```powershell
-$env:OPENAI_API_KEY="your_api_key_here"
+cd frontend
+npm install
+npm run build
+npm run dev
 ```
 
-Optional model override:
+Frontend URL:
+
+```text
+http://localhost:5173
+```
+
+The frontend calls the backend at `http://127.0.0.1:8000`, so run the backend and frontend at the same time for normal app testing.
+
+## Environment Variables And API Keys
+
+OpenAI is used for:
+
+- AI workout plan import
+- AI workout plan enhancement
+- AI session reflection
+
+The app supports saving an OpenAI key from **Settings** for the current backend process. The backend also supports `OPENAI_API_KEY` as an environment fallback.
+
+Example:
 
 ```powershell
-$env:OPENAI_WORKOUT_IMPORT_MODEL="gpt-4.1-mini"
-```
-
-Check key status:
-
-```bash
-curl http://127.0.0.1:8000/settings/openai-key
-```
-
-Analyze a plain-text workout plan:
-
-```bash
-curl -X POST http://127.0.0.1:8000/imports/workout-plan/analyze \
-  -H "Content-Type: application/json" \
-  -d "{\"raw_text\":\"Day 1 Upper Body\\nBench Press 4x8 rest 120 seconds\"}"
-```
-
-Save a reviewed AI import:
-
-```bash
-curl -X POST http://127.0.0.1:8000/imports/workout-plan/save \
-  -H "Content-Type: application/json" \
-  -d "{\"parsed_plan\":{\"program\":{\"name\":\"Imported Plan\",\"goal\":\"Imported from text\",\"duration_weeks\":8},\"workout_days\":[{\"name\":\"Upper Body\",\"day_order\":1,\"exercises\":[{\"movement_name\":\"Bench Press\",\"sets\":4,\"reps\":\"8\",\"rest_seconds\":120,\"notes\":\"\",\"exercise_order\":1,\"confidence\":0.9,\"warnings\":[]}]}]},\"approval_status\":\"approved_by_user\"}"
-```
-
-Run backend tests:
-
-```bash
 cd backend
+$env:OPENAI_API_KEY="your_key_here"
+uvicorn app.main:app --reload
+```
+
+YouTube automatic search uses the backend environment variable `YOUTUBE_API_KEY`.
+
+```powershell
+cd backend
+$env:YOUTUBE_API_KEY="your_key_here"
+uvicorn app.main:app --reload
+```
+
+Manual YouTube video entry does not require a YouTube key.
+
+Never commit real API keys, secrets, `.env` files, or terminal history containing secrets.
+
+## Running The App Locally
+
+Use two terminals.
+
+Terminal 1, backend:
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
+uvicorn app.main:app --reload
+```
+
+Terminal 2, frontend:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+Backend docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Phase-1 MVP Demo Flow
+
+Full runbook:
+
+- [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
+
+Summary:
+
+1. Load or paste the sample workout plan.
+2. Analyze/import the raw plan with AI.
+3. Review and save the structured plan.
+4. Add trainee profile and readiness context if useful.
+5. Enhance the plan if desired and if OpenAI is configured.
+6. Start a workout.
+7. Log sets.
+8. Use the rest timer.
+9. Finish the session.
+10. View session details.
+11. Generate AI reflection if OpenAI is configured.
+12. Generate progression suggestions.
+13. Check dashboard updates.
+
+## Sample Workout Plan
+
+Use this realistic three-day sample plan for demos and evaluator walkthroughs:
+
+- [Demo sample workout plan](docs/DEMO_SAMPLE_WORKOUT_PLAN.md)
+
+The Import screen also includes a **Load sample workout plan** button. It fills the raw text area only; it does not analyze or save automatically.
+
+## Tests And Validation
+
+Backend:
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
 python -m pytest
 ```
 
-If you use the repository virtual environment on Windows:
+Frontend:
 
 ```powershell
-cd backend
-.\.venv\Scripts\python.exe -m pytest
+cd frontend
+npm run build
 ```
 
-### YouTube API Key Setup
+## Local SQLite Note
 
-Automatic YouTube search runs only on the backend and reads `YOUTUBE_API_KEY` from the backend environment. Do not put this key in frontend code or commit it to Git.
+The local prototype uses SQLite at `backend/setpilot.db`.
 
-```powershell
-cd backend
-$env:YOUTUBE_API_KEY="your_youtube_api_key_here"
-uvicorn app.main:app --reload
-```
-
-Manual YouTube video entry does not require a YouTube API key.
-
-### Local SQLite Notes
-
-The local MVP uses `backend/setpilot.db` by default. Prototype schema changes may require a local reset:
+If local schema drift blocks development, stop the backend and delete the local database:
 
 ```powershell
 cd backend
@@ -245,47 +228,51 @@ Remove-Item .\setpilot.db
 uvicorn app.main:app --reload
 ```
 
-Backend tests use a separate SQLite file through `SETPILOT_DATABASE_URL` and should not write into `backend/setpilot.db`.
+This removes local test data only. Proper migrations are a future Phase 2 concern.
 
-### Frontend
+## What This MVP Is Not Yet
 
-From the repository root:
+- Not production SaaS
+- No multi-user authentication yet
+- No trainer portal yet
+- No payments yet
+- No cloud deployment yet
+- No HIPAA/GDPR compliance claim
+- No medical diagnosis
+- AI suggestions are advisory and must not be treated as medical or safety guarantees
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Roadmap
 
-The frontend runs at the local URL printed by Vite, usually `http://localhost:5173`.
+Phase 1:
 
-Important: run the backend and frontend at the same time when testing program, workout day, exercise creation, API key settings, and AI import. The frontend calls the backend at `http://127.0.0.1:8000`.
+- Local MVP and investor demo
+- Reliable import -> review -> train -> reflect -> dashboard loop
 
-Build the frontend:
+Phase 2:
 
-```bash
-cd frontend
-npm run build
-```
+- PostgreSQL
+- Alembic migrations
+- Authentication
+- User-owned data
+- Cloud staging
 
-## Security Notes
+Phase 3:
 
-For local MVP use, the in-app API key setting is session-only and backend-only. The key is not stored in GitHub, not hardcoded in frontend code, and not intentionally kept in browser storage.
+- Trainer/client mode
+- PWA/mobile gym mode
+- Subscriptions
+- Pilot users
 
-For production, this must be replaced with proper user accounts, encrypted secret storage, HTTPS, key rotation/deletion, access control, and usage limits.
+## More Documentation
 
-## Documentation
-
-- [Phase-1 MVP demo](docs/PHASE_1_MVP_DEMO_FLOW.md)
+- [SetPilot product master plan](docs/SET_PILOT_PRODUCT_MASTER_PLAN.md)
+- [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
 - [Demo sample workout plan](docs/DEMO_SAMPLE_WORKOUT_PLAN.md)
+- [Developer guide](docs/DEVELOPER_GUIDE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Product vision](docs/product-vision.md)
 - [MVP scope](docs/mvp-scope.md)
 - [Sprint plan](docs/sprint-plan.md)
 - [User stories](docs/user-stories.md)
 - [Data model](docs/data-model.md)
 - [Architecture](docs/architecture.md)
-- [Codex prompts](docs/codex-prompts.md)
-
-## Current Development Rule
-
-Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, exercises, AI import, and in-app API key settings are now the base. The next slice should be stored YouTube examples or workout session mode. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
