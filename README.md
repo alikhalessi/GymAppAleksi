@@ -204,6 +204,7 @@ The Import screen also includes a **Load sample workout plan** button. It fills 
 Use these docs for a short, honest Phase-1 walkthrough:
 
 - [Investor demo checklist](docs/INVESTOR_DEMO_CHECKLIST.md)
+- [Bug fix freeze report](docs/BUG_FIX_FREEZE_REPORT.md)
 - [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
 - [Phase-1 MVP validation report](docs/PHASE_1_MVP_VALIDATION_REPORT.md)
 
