@@ -267,6 +267,7 @@ Phase 3:
 
 - [SetPilot product master plan](docs/SET_PILOT_PRODUCT_MASTER_PLAN.md)
 - [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
+- [Phase-1 MVP validation report](docs/PHASE_1_MVP_VALIDATION_REPORT.md)
 - [Demo sample workout plan](docs/DEMO_SAMPLE_WORKOUT_PLAN.md)
 - [Developer guide](docs/DEVELOPER_GUIDE.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
