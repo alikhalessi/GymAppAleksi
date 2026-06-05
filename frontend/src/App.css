@@ -129,6 +129,14 @@ select:disabled {
   line-height: 1.6;
 }
 
+.intro p + p {
+  margin-top: 0.55rem;
+}
+
+.intro strong {
+  color: #f5fff7;
+}
+
 .actions {
   position: sticky;
   top: 4.55rem;
@@ -361,7 +369,8 @@ select:disabled {
 
 .cold-start-card,
 .flow-handoff,
-.sample-plan-card {
+.sample-plan-card,
+.demo-callout {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -372,11 +381,31 @@ select:disabled {
 }
 
 .cold-start-card h3,
+.demo-callout h3,
 .sample-plan-card h3,
 .flow-handoff strong,
+.demo-callout p,
 .sample-plan-card p,
 .flow-handoff p {
   margin: 0;
+}
+
+.demo-callout {
+  background: linear-gradient(180deg, #ffffff, #f3f8ff);
+  border-color: rgba(41, 98, 170, 0.18);
+}
+
+.demo-callout h3 {
+  color: #173f63;
+}
+
+.demo-steps {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.85rem 0 0;
+  padding-left: 1.25rem;
+  color: #334139;
+  line-height: 1.45;
 }
 
 .flow-handoff {
@@ -1222,7 +1251,8 @@ select:focus-visible {
 
   .cold-start-card,
   .flow-handoff,
-  .sample-plan-card {
+  .sample-plan-card,
+  .demo-callout {
     align-items: flex-start;
     flex-direction: column;
   }

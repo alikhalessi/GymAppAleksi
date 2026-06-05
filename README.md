@@ -199,6 +199,14 @@ Use this realistic three-day sample plan for demos and evaluator walkthroughs:
 
 The Import screen also includes a **Load sample workout plan** button. It fills the raw text area only; it does not analyze or save automatically.
 
+## Investor Demo
+
+Use these docs for a short, honest Phase-1 walkthrough:
+
+- [Investor demo checklist](docs/INVESTOR_DEMO_CHECKLIST.md)
+- [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
+- [Phase-1 MVP validation report](docs/PHASE_1_MVP_VALIDATION_REPORT.md)
+
 ## Tests And Validation
 
 Backend:
@@ -266,6 +274,7 @@ Phase 3:
 ## More Documentation
 
 - [SetPilot product master plan](docs/SET_PILOT_PRODUCT_MASTER_PLAN.md)
+- [Investor demo checklist](docs/INVESTOR_DEMO_CHECKLIST.md)
 - [Phase-1 MVP demo flow](docs/PHASE_1_MVP_DEMO_FLOW.md)
 - [Phase-1 MVP validation report](docs/PHASE_1_MVP_VALIDATION_REPORT.md)
 - [Demo sample workout plan](docs/DEMO_SAMPLE_WORKOUT_PLAN.md)
