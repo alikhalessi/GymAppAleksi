@@ -25,7 +25,28 @@ type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" |
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 const BACKEND_UNREACHABLE_MESSAGE = "Backend is unreachable.\nStart backend with: cd backend; .\\.venv\\Scripts\\activate; uvicorn app.main:app --reload\nExpected API: http://127.0.0.1:8000";
-const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
+const sampleImportText = `Program: Strength and Hypertrophy Foundation
+Duration: 6 weeks
+Goal: Build general strength, controlled hypertrophy, and better exercise consistency.
+Audience: Beginner-to-intermediate trainee with access to a normal gym.
+
+Day 1 - Upper Body Strength
+Notes: Keep reps controlled. If shoulder feels irritated, use neutral-grip dumbbell press instead of barbell bench. فارسی: تمرکز روی فرم و کنترل حرکت.
+Bench Press - 4 sets - 6-8 reps - 120 sec rest - RPE 7-8 - pause briefly on chest, do not bounce
+Lat Pulldown - 3 sets - 8-10 reps - 90 sec rest - RPE 7 - pull elbows down toward ribs, کنترل شانه ها
+Seated Cable Row - 3 sets - 10-12 reps - 90 sec rest - RPE 7 - torso still, squeeze upper back
+
+Day 2 - Lower Body Controlled Strength
+Notes: Controlled tempo. Stop if sharp pain appears. Mild muscle fatigue is fine.
+Leg Press - 4 sets - 8-10 reps - 120 sec rest - RPE 7-8 - feet shoulder-width, do not lock knees hard
+Romanian Deadlift - 3 sets - 8 reps - 120 sec rest - RPE 7 - hinge from hips, soft knees, neutral back
+Goblet Squat - 3 sets - 10-12 reps - 90 sec rest - RPE 7 - use dumbbell or kettlebell, عمق حرکت تا جایی که فرم خوب بماند
+
+Day 3 - Full Body / Conditioning Support
+Notes: Productive, not crushing. Keep rest honest and technique clean.
+Dumbbell Shoulder Press - 3 sets - 8-10 reps - 90 sec rest - RPE 7 - seated or standing, brace ribs down
+Plank - 3 sets - 30-45 seconds - 60 sec rest - RPE 6-7 - straight line from shoulder to ankle, نفس آرام
+Incline Treadmill Walk - 1 set - 10-15 minutes - 0 sec rest - RPE 6 - steady breathing, no sprinting required`;
 const defaultReadiness: ReadinessProfile = { age: 45, sex: "", height_cm: 167, weight_kg: 98, bmi: 35.1, training_experience: "intermediate", primary_goal: "strength and fat loss", energy_level: 7, sleep_quality: 7, soreness_level: 4, stress_level: 5, pain_or_limitations: "", available_equipment: "full gym", session_time_limit_minutes: 75, difficulty_preference: "moderate", extra_notes: "" };
 const emptyProfileForm = { display_name: "", age: "", sex: "", height_cm: "", weight_kg: "", training_experience: "", primary_goal: "", limitations: "", available_equipment: "", preferred_session_minutes: "", notes: "" };
 const emptyReadinessCheckForm = { energy_level: "", sleep_quality: "", soreness_level: "", stress_level: "", pain_or_limitations_today: "", available_time_minutes: "", notes: "" };
@@ -198,7 +219,7 @@ function App() {
 
   const [openAIKeyInput, setOpenAIKeyInput] = useState("");
   const [openAIKeyStatus, setOpenAIKeyStatus] = useState<OpenAIKeyStatus>({ configured: false, source: null, masked_key: null });
-  const [importText, setImportText] = useState(sampleImportText);
+  const [importText, setImportText] = useState("");
   const [importAnalysis, setImportAnalysis] = useState<ImportAnalysis | null>(null);
   const [planSavedMessage, setPlanSavedMessage] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<ReadinessProfile>(defaultReadiness);
@@ -723,13 +744,20 @@ function App() {
     if (!planSavedMessage) return null;
     return <div className="flow-handoff"><div><strong>Plan saved</strong><p>{planSavedMessage}</p></div><div className="form-actions"><button className="primary-button compact-button" type="button" onClick={() => setActiveView("training")}>Go to Training</button><button className="secondary-button compact-button" type="button" onClick={() => setActiveView("programs")}>Review Programs</button></div></div>;
   }
+  function loadSampleWorkoutPlan() {
+    setImportText(sampleImportText);
+    setImportAnalysis(null);
+    setEnhancement(null);
+    setPlanSavedMessage(null);
+    setError(null);
+  }
 
   function renderDashboard() {
     const selectedDetailSummary = selectedSessionDetail ? summarizeSession(selectedSessionDetail) : null;
     const isColdStart = programs.length === 0 && recentSessions.length === 0;
 
     return <section className="program-workspace cockpit-view">
-      {isColdStart ? <section className="program-list cold-start-card"><div><p className="eyebrow">Start here</p><h3>No program loaded yet</h3><p>Import a messy plan first, or create a basic program manually. Training starts after a program and workout day exist.</p></div><div className="cold-start-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Import workout plan</button><button className="secondary-button" type="button" onClick={() => setActiveView("programs")}>Create manually</button><button className="secondary-button" type="button" onClick={() => setActiveView("profile")}>Add profile context</button></div></section> : null}
+      {isColdStart ? <section className="program-list cold-start-card"><div><p className="eyebrow">Try the sample plan</p><h3>No program loaded yet</h3><p>Open Import, click Load sample workout plan, then edit or analyze it. Training starts after a program and workout day exist.</p></div><div className="cold-start-actions"><button className="primary-button" type="button" onClick={() => setActiveView("import")}>Go to Import</button><button className="secondary-button" type="button" onClick={() => setActiveView("programs")}>Create manually</button><button className="secondary-button" type="button" onClick={() => setActiveView("profile")}>Add profile context</button></div></section> : null}
       {renderPlanSavedMessage()}
       <div className="dashboard-summary-grid">
         <section className="program-list latest-workout-card">
@@ -836,7 +864,7 @@ function App() {
   }
 
   function renderImportView() {
-    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Import</p><h2>AI Workout Plan Import</h2></div><p>Pure extraction. No coaching. No judging. No creative nonsense.</p></div>{!openAIKeyStatus.configured ? <p className="setup-note">OpenAI key required. Go to Settings and save a key, or set OPENAI_API_KEY in the backend environment and restart uvicorn.</p> : null}<form className="program-form import-form" onSubmit={analyzeImport}><label>Plain text workout plan<textarea className="import-textarea" placeholder="Paste the workout plan exactly as you received it. WhatsApp text, trainer notes, mixed language, and messy formatting are fine." value={importText} onChange={(e) => setImportText(e.target.value)} /></label><button className="primary-button" disabled={!openAIKeyStatus.configured || loading !== null} type="submit">{openAIKeyStatus.configured ? "Extract plan" : "Add API key first"}</button></form>{importAnalysis ? <div className="program-list import-preview"><div className="list-header"><h3>Extracted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(importAnalysis.parsed_plan, "approved_extracted_plan")}>Save extracted plan to Programs</button></div><p><strong>{importAnalysis.parsed_plan.program.name}</strong> · {importAnalysis.parsed_plan.program.duration_weeks} weeks · extraction confidence {Math.round(importAnalysis.overall_confidence * 100)}%</p><p>{importAnalysis.parsed_plan.program.goal}</p>{importAnalysis.trainer_review_required ? <p className="warning-pill">Review recommended because extraction used assumptions or ambiguity exists.</p> : null}{renderPlan(importAnalysis.parsed_plan)}</div> : null}</section>;
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Import</p><h2>AI Workout Plan Import</h2></div><p>Pure extraction. No coaching. No judging. No creative nonsense.</p></div>{!openAIKeyStatus.configured ? <p className="setup-note">OpenAI key required. Go to Settings and save a key, or set OPENAI_API_KEY in the backend environment and restart uvicorn.</p> : null}<div className="program-list sample-plan-card"><div><h3>Demo sample plan</h3><p>Use this to test the full MVP flow. You can edit it before analysis.</p></div><button className="secondary-button" type="button" onClick={loadSampleWorkoutPlan}>Load sample workout plan</button></div><form className="program-form import-form" onSubmit={analyzeImport}><label>Plain text workout plan<textarea className="import-textarea" placeholder="Paste the workout plan exactly as you received it. WhatsApp text, trainer notes, mixed language, and messy formatting are fine." value={importText} onChange={(e) => setImportText(e.target.value)} /></label><button className="primary-button" disabled={!openAIKeyStatus.configured || loading !== null} type="submit">{openAIKeyStatus.configured ? "Extract plan" : "Add API key first"}</button></form>{importAnalysis ? <div className="program-list import-preview"><div className="list-header"><h3>Extracted Plan Preview</h3><button className="primary-button compact-button" onClick={() => void savePlan(importAnalysis.parsed_plan, "approved_extracted_plan")}>Save extracted plan to Programs</button></div><p><strong>{importAnalysis.parsed_plan.program.name}</strong> · {importAnalysis.parsed_plan.program.duration_weeks} weeks · extraction confidence {Math.round(importAnalysis.overall_confidence * 100)}%</p><p>{importAnalysis.parsed_plan.program.goal}</p>{importAnalysis.trainer_review_required ? <p className="warning-pill">Review recommended because extraction used assumptions or ambiguity exists.</p> : null}{renderPlan(importAnalysis.parsed_plan)}</div> : null}</section>;
   }
 
   function renderEnhanceView() {
