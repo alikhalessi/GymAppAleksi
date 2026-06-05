@@ -360,7 +360,8 @@ select:disabled {
 }
 
 .cold-start-card,
-.flow-handoff {
+.flow-handoff,
+.sample-plan-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -371,7 +372,9 @@ select:disabled {
 }
 
 .cold-start-card h3,
+.sample-plan-card h3,
 .flow-handoff strong,
+.sample-plan-card p,
 .flow-handoff p {
   margin: 0;
 }
@@ -1218,7 +1221,8 @@ select:focus-visible {
   }
 
   .cold-start-card,
-  .flow-handoff {
+  .flow-handoff,
+  .sample-plan-card {
     align-items: flex-start;
     flex-direction: column;
   }
