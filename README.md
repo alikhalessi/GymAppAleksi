@@ -276,6 +276,8 @@ For production, this must be replaced with proper user accounts, encrypted secre
 
 ## Documentation
 
+- [Phase-1 MVP demo](docs/PHASE_1_MVP_DEMO_FLOW.md)
+- [Demo sample workout plan](docs/DEMO_SAMPLE_WORKOUT_PLAN.md)
 - [Product vision](docs/product-vision.md)
 - [MVP scope](docs/mvp-scope.md)
 - [Sprint plan](docs/sprint-plan.md)
