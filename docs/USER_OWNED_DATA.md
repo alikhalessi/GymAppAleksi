@@ -51,7 +51,17 @@ Cross-user records return `404` rather than exposing whether another user's reco
 
 ## RLS Status
 
-PostgreSQL Row Level Security policies are not added in Sprint 7. Backend authorization is the current enforcement layer. RLS should be added in a later hardening sprint after staging auth verification and deployment configuration are stable.
+PostgreSQL Row Level Security policies are not added in Sprint 7 or Sprint 8. Backend authorization is the current enforcement layer. RLS/security hardening remains Sprint 10 work after staging auth verification and deployment configuration are stable.
+
+## Backend Staging Behavior
+
+Sprint 8 targets a Render backend connected to Supabase PostgreSQL through the private Render `DATABASE_URL` environment variable.
+
+- Protected staging should use `AUTH_REQUIRED=true` after JWT verification is configured.
+- The frontend sends a Supabase bearer token to FastAPI when a user is signed in.
+- FastAPI route-level filtering protects user data before reading or mutating database records.
+- Local fallback mode remains for local development and should not be treated as production-grade authorization.
+- PostgreSQL RLS is still a later hardening layer, not the current Sprint 8 enforcement mechanism.
 
 ## Validation
 

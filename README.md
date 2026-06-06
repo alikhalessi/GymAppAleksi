@@ -50,6 +50,7 @@ Phase 2 planning documents:
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 - [Authentication setup](docs/AUTHENTICATION_SETUP.md)
 - [User-owned data](docs/USER_OWNED_DATA.md)
+- [Render backend deployment](docs/RENDER_BACKEND_DEPLOYMENT.md)
 
 ## Environment Configuration
 
@@ -66,6 +67,10 @@ Sprint 5 adds the founder-facing [Supabase Postgres setup](docs/SUPABASE_POSTGRE
 ## Authentication
 
 Sprint 6 adds Supabase Auth foundation for sign up, sign in, sign out, and session state while keeping existing local MVP flows available. Sprint 7 adds backend-enforced user ownership for app data routes. See [Authentication setup](docs/AUTHENTICATION_SETUP.md) and [User-owned data](docs/USER_OWNED_DATA.md).
+
+## Backend Staging Deployment
+
+Sprint 8 prepares the FastAPI backend for Render staging deployment. Use [Render backend deployment](docs/RENDER_BACKEND_DEPLOYMENT.md) for the Render service name, root directory, build command, start command, health check path, environment variables, migration notes, and troubleshooting. Do not commit Render, Supabase, OpenAI, or YouTube secrets.
 
 ## MVP Scope
 
@@ -319,6 +324,7 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 - [Authentication setup](docs/AUTHENTICATION_SETUP.md)
 - [User-owned data](docs/USER_OWNED_DATA.md)
+- [Render backend deployment](docs/RENDER_BACKEND_DEPLOYMENT.md)
 
 ## Current Development Rule
 

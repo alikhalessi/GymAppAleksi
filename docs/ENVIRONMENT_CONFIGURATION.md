@@ -53,6 +53,26 @@ Connection mode guidance:
 
 See [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) and [Supabase validation checklist](SUPABASE_VALIDATION_CHECKLIST.md) before running Alembic against Supabase.
 
+## Render Backend Staging
+
+Sprint 8 prepares the backend for Render. See [Render backend deployment](RENDER_BACKEND_DEPLOYMENT.md) for the full runbook.
+
+Render service settings:
+
+- Service name: `setpilot-api`
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Health check path: `/health`
+
+Render environment rules:
+
+- `DATABASE_URL` lives only in Render environment variables or a private local shell. Never commit it.
+- `ALLOWED_ORIGINS` must include local frontend origins for smoke tests and the later Vercel URL after Sprint 9.
+- `AUTH_REQUIRED` may be `false` for a first smoke test, but protected staging should move to `true` after JWT verification is configured.
+- `OPENAI_API_KEY` and `YOUTUBE_API_KEY` are backend-only.
+- The frontend must never receive `DATABASE_URL`, OpenAI keys, YouTube keys, Supabase JWT secrets, database passwords, or service-role keys.
+
 ## Frontend Environment Variables
 
 | Variable | Required locally? | Required in staging? | Description | Example placeholder |
@@ -145,6 +165,7 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 - Set `YOUTUBE_API_KEY` in the Render environment.
 - Set `ALLOWED_ORIGINS` to the Vercel frontend URL.
 - Set `AUTH_REQUIRED=true` only after `SUPABASE_JWT_SECRET` or the future JWKS verification path is configured.
+- Use `uvicorn app.main:app --host 0.0.0.0 --port $PORT` as the backend start command.
 
 ### Supabase
 

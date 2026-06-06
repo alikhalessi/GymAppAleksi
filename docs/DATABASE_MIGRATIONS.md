@@ -108,6 +108,24 @@ After migration, verify tables in the Supabase Table Editor or SQL editor. Confi
 
 Do not autogenerate migrations blindly against a cloud database. Generate locally, review the migration file, confirm table names, columns, indexes, foreign keys, downgrade behavior, and then run reviewed migrations against Supabase.
 
+## Render And Supabase Staging
+
+Render should receive the real Supabase PostgreSQL `DATABASE_URL` value through Render environment variables only. A `DATABASE_URL` key with `sync: false` in `render.yaml` is acceptable, but the real URL value must not appear in `render.yaml`, Alembic config, GitHub, docs, or frontend variables.
+
+Apply Alembic migrations deliberately before or alongside the staging deploy. Do not run destructive migrations blindly from Render startup commands. For Sprint 8, migrations remain a manual reviewed step.
+
+Placeholder-only staging migration command:
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
+$env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.invalid:5432/setpilot"
+alembic current
+alembic upgrade head
+```
+
+After deploy, if the Render backend reports missing tables or columns, verify `alembic current` and `alembic_version` against the Supabase database before changing application code.
+
 ## Safety Rules
 
 - Do not run destructive migrations blindly.
@@ -116,6 +134,6 @@ Do not autogenerate migrations blindly against a cloud database. Generate locall
 - Do not commit real `DATABASE_URL` values.
 - Keep local SQLite and future PostgreSQL behavior in mind when reviewing generated operations.
 
-## Current Sprint 5 Boundary
+## Current Sprint Boundary
 
-Sprint 7 adds the user-owned data migration after the initial schema. It does not remove `create_all`, does not deploy to Render or Vercel, and does not add PostgreSQL RLS policies.
+Sprint 8 prepares backend staging deployment on Render. It does not remove `create_all`, does not deploy the frontend to Vercel, does not automate destructive migrations, and does not add PostgreSQL RLS policies.
