@@ -33,6 +33,8 @@ These are format examples only. Do not commit real usernames, passwords, hosts, 
 
 The backend dependency uses `psycopg[binary]`, the modern Psycopg 3 driver. Unqualified PostgreSQL URLs are normalized to the `postgresql+psycopg://` SQLAlchemy dialect so future Render/Supabase URLs can use that driver without adding psycopg2.
 
+Alembic uses the same `DATABASE_URL` resolution as the app. If `DATABASE_URL` is unset, migration commands also fall back to local SQLite. Supabase PostgreSQL migration execution is planned for Sprint 5, after the Alembic baseline is reviewed.
+
 ## Frontend Environment Variables
 
 | Variable | Required locally? | Required in staging? | Description | Example placeholder |
@@ -68,6 +70,15 @@ $env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.inva
 ```
 
 Do not use or commit real Supabase connection strings yet. PostgreSQL compatibility is prepared in Sprint 3, but actual Supabase connection comes later after Alembic migrations.
+
+Local Alembic status check:
+
+```powershell
+cd backend
+alembic current
+```
+
+Never commit real `DATABASE_URL` values in Alembic config or documentation.
 
 ### Frontend With `.env.local`
 

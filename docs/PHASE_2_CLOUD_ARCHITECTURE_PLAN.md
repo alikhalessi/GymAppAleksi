@@ -102,7 +102,7 @@ These are planned variables and placeholders only. Do not commit real values.
 - `ALLOWED_ORIGINS`: allowed frontend origins for CORS.
 - `ENVIRONMENT`: local, staging, or production-later environment label.
 
-Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 adds PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase.
+Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 added PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase. Sprint 4 adds Alembic tooling and an initial schema migration while keeping startup `create_all` for local prototype compatibility.
 
 ### Frontend
 

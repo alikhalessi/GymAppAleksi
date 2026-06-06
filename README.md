@@ -53,6 +53,10 @@ SetPilot keeps local development as the default. Cloud accounts are not required
 
 Use [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md) for local, staging, and future-production configuration rules. Safe placeholder examples live in `backend/.env.example` and `frontend/.env.example`. Real `.env` files and secrets must not be committed.
 
+## Database Migrations
+
+SetPilot uses Alembic migration tooling for Phase 2 database discipline while keeping local SQLite development working. See [Database migrations](docs/DATABASE_MIGRATIONS.md) for local commands, safety rules, and the future Supabase/PostgreSQL migration path.
+
 ## MVP Scope
 
 The local MVP should support:
@@ -300,6 +304,7 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Architecture](docs/architecture.md)
 - [Codex prompts](docs/codex-prompts.md)
 - [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md)
+- [Database migrations](docs/DATABASE_MIGRATIONS.md)
 
 ## Current Development Rule
 
