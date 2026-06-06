@@ -186,6 +186,7 @@ class AuthStatus(BaseModel):
     jwks_url_configured: bool
     verification_configured: bool
     verification_mode: str
+    local_fallback_enabled: bool
 
 
 class AuthUserRead(BaseModel):

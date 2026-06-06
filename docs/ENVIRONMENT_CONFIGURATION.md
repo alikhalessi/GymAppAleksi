@@ -19,10 +19,10 @@ Local development remains the default. Cloud accounts are not required to run th
 | `OPENAI_CHANGE_PROPOSAL_MODEL` | No | No | Planned model setting for future reviewable change proposals. | `gpt-5.5` |
 | `YOUTUBE_API_KEY` | No | Yes for YouTube search | Backend-only YouTube Data API key. Manual video entry does not require it. | empty |
 | `ALLOWED_ORIGINS` | No | Yes | Comma-separated frontend origins allowed by CORS. Defaults to local Vite origins. | `http://localhost:5173,http://127.0.0.1:5173` |
-| `SUPABASE_URL` | No | Yes for auth later | Supabase project URL for backend auth context. Do not use a service-role key here. | empty |
-| `SUPABASE_JWT_SECRET` | No | Later | Backend-only JWT verification secret for Supabase access tokens. Never expose in frontend. | empty |
+| `SUPABASE_URL` | No | Yes for auth staging | Supabase project URL for backend auth context. Do not use a service-role key here. | empty |
+| `SUPABASE_JWT_SECRET` | No | Yes before `AUTH_REQUIRED=true` | Backend-only JWT verification secret for Supabase access tokens. Never expose in frontend. | empty |
 | `SUPABASE_JWKS_URL` | No | Later | Future JWKS endpoint for stronger JWT verification flow. | empty |
-| `AUTH_REQUIRED` | No | Later | Whether backend auth is required. Defaults false for local/demo compatibility. | `false` |
+| `AUTH_REQUIRED` | No | Yes for locked staging | Whether backend auth is required for protected app data routes. Defaults false for local/demo compatibility. | `false` |
 
 Compatibility note: `SETPILOT_DATABASE_URL` is still supported as a legacy local/test override. `DATABASE_URL` takes priority when both are set.
 
@@ -63,7 +63,18 @@ See [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) and [Supabase validati
 
 `VITE_*` values are public in browser builds. Never put backend secrets, database passwords, OpenAI keys, YouTube keys, or Supabase service-role keys in frontend environment variables.
 
-See [Authentication setup](AUTHENTICATION_SETUP.md) before enabling Supabase Auth locally or in staging. Sprint 6 adds sign up, sign in, sign out, and session state only. Sprint 7 adds user-owned data and route protection.
+See [Authentication setup](AUTHENTICATION_SETUP.md) before enabling Supabase Auth locally or in staging. Sprint 6 adds sign up, sign in, sign out, and session state. Sprint 7 adds backend-enforced user-owned data for app routes.
+
+## User-Owned Data Environment Behavior
+
+Protected app data routes use a backend current-user dependency:
+
+- `AUTH_REQUIRED=false` with no token uses the local fallback user id `local-dev-user`.
+- `AUTH_REQUIRED=false` with a bearer JWT and no backend verification parses claims without signature verification for local or staging smoke testing only.
+- `AUTH_REQUIRED=true` with no token rejects protected app data routes.
+- `AUTH_REQUIRED=true` with a token requires backend JWT verification to be configured.
+
+See [User-owned data](USER_OWNED_DATA.md) for table coverage and RLS status.
 
 ## Local Setup Examples
 
@@ -133,13 +144,14 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 - Set `OPENAI_API_KEY` in the Render environment.
 - Set `YOUTUBE_API_KEY` in the Render environment.
 - Set `ALLOWED_ORIGINS` to the Vercel frontend URL.
+- Set `AUTH_REQUIRED=true` only after `SUPABASE_JWT_SECRET` or the future JWKS verification path is configured.
 
 ### Supabase
 
 - Copy the database URL into Render only.
 - Keep service-role keys out of frontend variables.
 - Put the publishable key or legacy anon public key in Vercel for Supabase Auth.
-- Sprint 6 connects the frontend to Supabase Auth using public frontend config only. It does not add user-owned data or RLS yet.
+- Sprint 7 uses backend route ownership checks. PostgreSQL RLS policies are deferred to a later hardening sprint.
 
 ## Secret Safety
 

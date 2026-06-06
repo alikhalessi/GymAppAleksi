@@ -73,29 +73,51 @@ async def request_validation_handler(
 
 
 def ensure_local_sqlite_snapshot_columns() -> None:
-    """Keep existing local SQLite databases usable without adding Alembic yet."""
+    """Keep existing local SQLite databases usable between local migration runs."""
 
     if engine.dialect.name != "sqlite":
         return
 
     inspector = inspect(engine)
-    if "session_sets" not in inspector.get_table_names():
-        return
+    table_names = inspector.get_table_names()
+    if "session_sets" in table_names:
+        existing_columns = {column["name"] for column in inspector.get_columns("session_sets")}
+        columns_to_add = {
+            "exercise_name_snapshot": "VARCHAR(160) NOT NULL DEFAULT ''",
+            "workout_day_name_snapshot": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "program_name_snapshot": "VARCHAR(120) NOT NULL DEFAULT ''",
+            "planned_rest_seconds_snapshot": "INTEGER",
+        }
 
-    existing_columns = {column["name"] for column in inspector.get_columns("session_sets")}
-    columns_to_add = {
-        "exercise_name_snapshot": "VARCHAR(160) NOT NULL DEFAULT ''",
-        "workout_day_name_snapshot": "VARCHAR(120) NOT NULL DEFAULT ''",
-        "program_name_snapshot": "VARCHAR(120) NOT NULL DEFAULT ''",
-        "planned_rest_seconds_snapshot": "INTEGER",
-    }
+        with engine.begin() as connection:
+            for column_name, column_definition in columns_to_add.items():
+                if column_name not in existing_columns:
+                    connection.execute(
+                        text(f"ALTER TABLE session_sets ADD COLUMN {column_name} {column_definition}"),
+                    )
+
+    user_owned_tables = [
+        "programs",
+        "workout_days",
+        "workout_exercises",
+        "planned_sets",
+        "workout_sessions",
+        "session_sets",
+        "session_reflections",
+        "progression_suggestions",
+        "trainee_profiles",
+        "readiness_checks",
+        "program_versions",
+        "youtube_videos",
+    ]
 
     with engine.begin() as connection:
-        for column_name, column_definition in columns_to_add.items():
-            if column_name not in existing_columns:
-                connection.execute(
-                    text(f"ALTER TABLE session_sets ADD COLUMN {column_name} {column_definition}"),
-                )
+        for table_name in user_owned_tables:
+            if table_name not in table_names:
+                continue
+            table_columns = {column["name"] for column in inspector.get_columns(table_name)}
+            if "user_id" not in table_columns:
+                connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN user_id VARCHAR(120)"))
 
 
 models.Base.metadata.create_all(bind=engine)

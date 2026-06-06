@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.services.auth import AuthUser, get_current_user, get_effective_user_id
+from app.services.ownership import ownership_filter, require_owned
 
 router = APIRouter(
     prefix="/exercises/{exercise_id}/planned-sets",
@@ -11,20 +13,16 @@ router = APIRouter(
 )
 
 
-def get_exercise_or_404(exercise_id: int, db: Session) -> models.WorkoutExercise:
+def get_exercise_or_404(exercise_id: int, db: Session, current_user: AuthUser) -> models.WorkoutExercise:
     exercise = db.get(models.WorkoutExercise, exercise_id)
-    if exercise is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Workout exercise not found",
-        )
-    return exercise
+    return require_owned(exercise, current_user, "Workout exercise not found")
 
 
 def get_planned_set_or_404(
     exercise_id: int,
     planned_set_id: int,
     db: Session,
+    current_user: AuthUser,
 ) -> models.PlannedSet:
     planned_set = db.get(models.PlannedSet, planned_set_id)
     if planned_set is None or planned_set.workout_exercise_id != exercise_id:
@@ -32,7 +30,7 @@ def get_planned_set_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Planned set not found",
         )
-    return planned_set
+    return require_owned(planned_set, current_user, "Planned set not found")
 
 
 @router.post("", response_model=schemas.PlannedSetRead, status_code=status.HTTP_201_CREATED)
@@ -40,10 +38,12 @@ def create_planned_set(
     exercise_id: int,
     planned_set_in: schemas.PlannedSetCreate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.PlannedSet:
-    get_exercise_or_404(exercise_id, db)
+    get_exercise_or_404(exercise_id, db, current_user)
     planned_set = models.PlannedSet(
         workout_exercise_id=exercise_id,
+        user_id=get_effective_user_id(current_user),
         **planned_set_in.model_dump(),
     )
     db.add(planned_set)
@@ -56,12 +56,14 @@ def create_planned_set(
 def list_planned_sets(
     exercise_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[models.PlannedSet]:
-    get_exercise_or_404(exercise_id, db)
+    get_exercise_or_404(exercise_id, db, current_user)
     return list(
         db.scalars(
             select(models.PlannedSet)
             .where(models.PlannedSet.workout_exercise_id == exercise_id)
+            .where(ownership_filter(models.PlannedSet, current_user))
             .order_by(models.PlannedSet.set_number.asc(), models.PlannedSet.created_at.asc())
         )
     )
@@ -73,9 +75,10 @@ def update_planned_set(
     planned_set_id: int,
     planned_set_in: schemas.PlannedSetUpdate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.PlannedSet:
-    get_exercise_or_404(exercise_id, db)
-    planned_set = get_planned_set_or_404(exercise_id, planned_set_id, db)
+    get_exercise_or_404(exercise_id, db, current_user)
+    planned_set = get_planned_set_or_404(exercise_id, planned_set_id, db, current_user)
 
     updates = planned_set_in.model_dump(exclude_unset=True)
     for field, value in updates.items():
@@ -92,8 +95,9 @@ def delete_planned_set(
     exercise_id: int,
     planned_set_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> None:
-    get_exercise_or_404(exercise_id, db)
-    planned_set = get_planned_set_or_404(exercise_id, planned_set_id, db)
+    get_exercise_or_404(exercise_id, db, current_user)
+    planned_set = get_planned_set_or_404(exercise_id, planned_set_id, db, current_user)
     db.delete(planned_set)
     db.commit()

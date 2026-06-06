@@ -23,6 +23,7 @@ def test_auth_status_works_without_secrets(monkeypatch) -> None:
         "jwks_url_configured": False,
         "verification_configured": False,
         "verification_mode": "disabled",
+        "local_fallback_enabled": True,
     }
 
 
@@ -40,6 +41,7 @@ def test_auth_status_never_exposes_secret_values(monkeypatch) -> None:
     assert payload["supabase_url_configured"] is True
     assert payload["jwt_secret_configured"] is True
     assert payload["jwks_url_configured"] is True
+    assert payload["local_fallback_enabled"] is False
     assert "placeholder-jwt-value" not in response.text
     assert "project-ref" not in response.text
 

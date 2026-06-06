@@ -35,7 +35,7 @@ The current scaffold includes:
 - Frontend readiness enhancement flow that preserves original plans until the user saves an adjusted version
 - Frontend planned set weights, YouTube examples, workout session mode, set logging, rest timer, recent sessions, session detail view, AI reflection controls, progression suggestion controls, profile/readiness context, and dashboard guidance
 
-Payments, trainer dashboard, smartwatch sync, and nutrition are not included yet. Supabase Auth foundation exists, but existing workout data is not user-owned until Sprint 7.
+Payments, trainer dashboard, smartwatch sync, and nutrition are not included yet. Supabase Auth foundation exists, and Sprint 7 adds backend-enforced user ownership for app data routes.
 
 ## Phase 2 Cloud-Staging Plan
 
@@ -49,6 +49,7 @@ Phase 2 planning documents:
 - [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 - [Authentication setup](docs/AUTHENTICATION_SETUP.md)
+- [User-owned data](docs/USER_OWNED_DATA.md)
 
 ## Environment Configuration
 
@@ -64,7 +65,7 @@ Sprint 5 adds the founder-facing [Supabase Postgres setup](docs/SUPABASE_POSTGRE
 
 ## Authentication
 
-Sprint 6 adds Supabase Auth foundation for sign up, sign in, sign out, and session state while keeping existing local MVP flows available. See [Authentication setup](docs/AUTHENTICATION_SETUP.md). User-owned data and full route protection are Sprint 7 work.
+Sprint 6 adds Supabase Auth foundation for sign up, sign in, sign out, and session state while keeping existing local MVP flows available. Sprint 7 adds backend-enforced user ownership for app data routes. See [Authentication setup](docs/AUTHENTICATION_SETUP.md) and [User-owned data](docs/USER_OWNED_DATA.md).
 
 ## MVP Scope
 
@@ -95,7 +96,7 @@ The local MVP should support:
 - AI import: OpenAI API with Structured Outputs style JSON schema
 - API key handling for local MVP: session-only backend memory, with environment variable fallback
 - Charts later: Recharts
-- Authentication: Supabase Auth foundation in Phase 2 Sprint 6; user-owned data later
+- Authentication: Supabase Auth foundation in Phase 2 Sprint 6; backend user-owned data foundation in Sprint 7
 
 ## Repository Structure
 
@@ -317,7 +318,8 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 - [Authentication setup](docs/AUTHENTICATION_SETUP.md)
+- [User-owned data](docs/USER_OWNED_DATA.md)
 
 ## Current Development Rule
 
-Keep changes small and understandable. Programs, workout days, exercises, AI import, workout execution, cloud setup, and Supabase Auth foundation are now the base. Do not add payments, nutrition, trainer dashboard, smartwatch integration, or user-owned data enforcement until their sprint arrives.
+Keep changes small and understandable. Programs, workout days, exercises, AI import, workout execution, cloud setup, Supabase Auth foundation, and backend user-owned data enforcement are now the base. Do not add payments, nutrition, trainer dashboard, smartwatch integration, or Supabase RLS policies until their sprint arrives.

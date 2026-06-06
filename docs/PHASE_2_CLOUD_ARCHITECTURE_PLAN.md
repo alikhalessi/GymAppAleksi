@@ -106,7 +106,7 @@ These are planned variables and placeholders only. Do not commit real values.
 - `SUPABASE_JWKS_URL`: future JWKS verification endpoint.
 - `AUTH_REQUIRED`: auth enforcement flag, default false for local/demo compatibility.
 
-Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 added PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase. Sprint 4 added Alembic tooling and an initial schema migration while keeping startup `create_all` for local prototype compatibility. Sprint 5 documented Supabase Postgres setup. Sprint 6 adds Supabase Auth foundation without user-owned data enforcement.
+Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 added PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase. Sprint 4 added Alembic tooling and an initial schema migration while keeping startup `create_all` for local prototype compatibility. Sprint 5 documented Supabase Postgres setup. Sprint 6 adds Supabase Auth foundation. Sprint 7 adds backend-enforced user-owned data and defers PostgreSQL RLS to a later hardening sprint.
 
 ### Frontend
 
@@ -121,8 +121,8 @@ Frontend variables are bundled into browser-accessible code. They must never con
 - No secrets committed to Git.
 - Backend owns OpenAI and YouTube API keys.
 - Frontend calls the backend, not OpenAI or YouTube directly.
-- Supabase Auth foundation is added in Sprint 6. User-owned data, route protection, and RLS are added later.
-- RLS will matter once user-owned data can be accessed in a cloud environment.
+- Supabase Auth foundation is added in Sprint 6. Backend user-owned data and route protection are added in Sprint 7.
+- RLS remains a future hardening item before a real multi-user cloud release.
 - AI outputs remain advisory and must not make medical claims.
 - AI changes to plans must remain reviewable and should not silently mutate user programs.
 - Staging and production-later secrets must be separate.

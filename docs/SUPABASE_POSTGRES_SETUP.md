@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Sprint 5 prepared the Supabase PostgreSQL database target for future SetPilot staging. It did not deploy the backend or frontend, did not add Supabase Auth, and did not introduce user-owned data. Sprint 6 adds the separate Supabase Auth foundation.
+Sprint 5 prepared the Supabase PostgreSQL database target for future SetPilot staging. It did not deploy the backend or frontend. Sprint 6 adds the separate Supabase Auth foundation. Sprint 7 adds backend-enforced user-owned data through an Alembic migration and route scoping.
 
 Local SQLite remains the default development database. Supabase PostgreSQL is used only for manual validation now and later as the Render backend database through private environment variables.
 

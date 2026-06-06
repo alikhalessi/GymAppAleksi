@@ -10,8 +10,11 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class UserOwnedMixin:
+    user_id: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
 
-class Program(Base):
+
+class Program(UserOwnedMixin, Base):
     """Workout program created by a user for the MVP."""
 
     __tablename__ = "programs"
@@ -36,7 +39,7 @@ class Program(Base):
     )
 
 
-class ProgramVersion(Base):
+class ProgramVersion(UserOwnedMixin, Base):
     """Metadata layer tracking the provenance and version history of a workout program."""
 
     __tablename__ = "program_versions"
@@ -61,7 +64,7 @@ class ProgramVersion(Base):
     program: Mapped[Program] = relationship(back_populates="versions")
 
 
-class TraineeProfile(Base):
+class TraineeProfile(UserOwnedMixin, Base):
     """Single-user trainee profile context for the local MVP."""
 
     __tablename__ = "trainee_profiles"
@@ -83,7 +86,7 @@ class TraineeProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
-class ReadinessCheck(Base):
+class ReadinessCheck(UserOwnedMixin, Base):
     """Pre-session training context captured by the user."""
 
     __tablename__ = "readiness_checks"
@@ -100,7 +103,7 @@ class ReadinessCheck(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
-class WorkoutDay(Base):
+class WorkoutDay(UserOwnedMixin, Base):
     """A named training day inside a workout program."""
 
     __tablename__ = "workout_days"
@@ -126,7 +129,7 @@ class WorkoutDay(Base):
     )
 
 
-class WorkoutExercise(Base):
+class WorkoutExercise(UserOwnedMixin, Base):
     """Exercise prescription inside a workout day."""
 
     __tablename__ = "workout_exercises"
@@ -160,7 +163,7 @@ class WorkoutExercise(Base):
     )
 
 
-class PlannedSet(Base):
+class PlannedSet(UserOwnedMixin, Base):
     """Set-level prescription for a workout exercise."""
 
     __tablename__ = "planned_sets"
@@ -181,7 +184,7 @@ class PlannedSet(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="planned_sets")
 
 
-class YouTubeVideo(Base):
+class YouTubeVideo(UserOwnedMixin, Base):
     """Stored YouTube example video for a workout exercise."""
 
     __tablename__ = "youtube_videos"
@@ -203,7 +206,7 @@ class YouTubeVideo(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="youtube_videos")
 
 
-class WorkoutSession(Base):
+class WorkoutSession(UserOwnedMixin, Base):
     """An executed workout session for a selected workout day."""
 
     __tablename__ = "workout_sessions"
@@ -241,7 +244,7 @@ class WorkoutSession(Base):
     )
 
 
-class SessionSet(Base):
+class SessionSet(UserOwnedMixin, Base):
     """Actual set performance recorded during a workout session."""
 
     __tablename__ = "session_sets"
@@ -277,7 +280,7 @@ class SessionSet(Base):
     workout_exercise: Mapped[WorkoutExercise] = relationship(back_populates="session_sets")
 
 
-class SessionReflection(Base):
+class SessionReflection(UserOwnedMixin, Base):
     """AI-generated advisory reflection for a completed workout session."""
 
     __tablename__ = "session_reflections"
@@ -300,7 +303,7 @@ class SessionReflection(Base):
     workout_session: Mapped[WorkoutSession] = relationship(back_populates="reflections")
 
 
-class ProgressionSuggestion(Base):
+class ProgressionSuggestion(UserOwnedMixin, Base):
     """Rule-based advisory suggestion for the next time an exercise is trained."""
 
     __tablename__ = "progression_suggestions"

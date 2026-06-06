@@ -20,4 +20,6 @@ Use this checklist for the manual Sprint 5 database validation. Do not paste rea
 - [ ] Local SQLite backend tests still pass.
 - [ ] Frontend build still passes.
 - [ ] Frontend Supabase Auth configuration is validated separately in Sprint 6.
-- [ ] User-owned data and RLS are deferred to later sprints.
+- [ ] Sprint 7 `user_id` ownership migration is applied.
+- [ ] Backend route ownership checks are validated with separate test users.
+- [ ] PostgreSQL RLS remains deferred to a later hardening sprint.

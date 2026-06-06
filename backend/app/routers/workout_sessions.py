@@ -6,12 +6,18 @@ from app import models, schemas
 from app.database import get_db
 from app.models import utc_now
 from app.services import ai_session_reflection
+from app.services.auth import AuthUser, get_current_user, get_effective_user_id
+from app.services.ownership import ownership_filter, require_owned
 from app.services.progression import generate_progression_suggestions
 
 router = APIRouter(prefix="/sessions", tags=["workout sessions"])
 
 
-def get_session_or_404(session_id: int, db: Session) -> models.WorkoutSession:
+def get_session_or_404(
+    session_id: int,
+    db: Session,
+    current_user: AuthUser,
+) -> models.WorkoutSession:
     session = db.scalar(
         select(models.WorkoutSession)
         .options(
@@ -20,6 +26,7 @@ def get_session_or_404(session_id: int, db: Session) -> models.WorkoutSession:
             selectinload(models.WorkoutSession.session_sets),
         )
         .where(models.WorkoutSession.id == session_id)
+        .where(ownership_filter(models.WorkoutSession, current_user))
     )
     if session is None:
         raise HTTPException(
@@ -33,6 +40,7 @@ def get_exercise_for_session_or_404(
     session: models.WorkoutSession,
     workout_exercise_id: int,
     db: Session,
+    current_user: AuthUser,
 ) -> models.WorkoutExercise:
     exercise = db.get(models.WorkoutExercise, workout_exercise_id)
     if exercise is None or exercise.workout_day_id != session.workout_day_id:
@@ -40,13 +48,14 @@ def get_exercise_for_session_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Workout exercise not found for this session",
         )
-    return exercise
+    return require_owned(exercise, current_user, "Workout exercise not found for this session")
 
 
 def get_session_set_or_404(
     session_id: int,
     session_set_id: int,
     db: Session,
+    current_user: AuthUser,
 ) -> models.SessionSet:
     session_set = db.get(models.SessionSet, session_set_id)
     if session_set is None or session_set.workout_session_id != session_id:
@@ -54,7 +63,7 @@ def get_session_set_or_404(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session set not found",
         )
-    return session_set
+    return require_owned(session_set, current_user, "Session set not found")
 
 
 def session_set_exists(
@@ -62,13 +71,14 @@ def session_set_exists(
     workout_exercise_id: int,
     set_number: int,
     db: Session,
+    current_user: AuthUser,
 ) -> bool:
     existing_id = db.scalar(
-        select(models.SessionSet.id).where(
-            models.SessionSet.workout_session_id == session_id,
-            models.SessionSet.workout_exercise_id == workout_exercise_id,
-            models.SessionSet.set_number == set_number,
-        )
+        select(models.SessionSet.id)
+        .where(models.SessionSet.workout_session_id == session_id)
+        .where(models.SessionSet.workout_exercise_id == workout_exercise_id)
+        .where(models.SessionSet.set_number == set_number)
+        .where(ownership_filter(models.SessionSet, current_user))
     )
     return existing_id is not None
 
@@ -77,31 +87,40 @@ def session_set_exists(
 def start_session(
     session_in: schemas.WorkoutSessionCreate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.WorkoutSession:
     program = db.get(models.Program, session_in.program_id)
     if program is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+    require_owned(program, current_user, "Program not found")
 
     workout_day = db.get(models.WorkoutDay, session_in.workout_day_id)
     if workout_day is None or workout_day.program_id != session_in.program_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workout day not found")
+    require_owned(workout_day, current_user, "Workout day not found")
 
-    session = models.WorkoutSession(**session_in.model_dump(), status="active")
+    session = models.WorkoutSession(
+        user_id=get_effective_user_id(current_user),
+        **session_in.model_dump(),
+        status="active",
+    )
     db.add(session)
     db.commit()
     db.refresh(session)
-    return get_session_or_404(session.id, db)
+    return get_session_or_404(session.id, db, current_user)
 
 
 @router.get("/recent", response_model=list[schemas.WorkoutSessionRead])
 def get_recent_sessions(
     limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[models.WorkoutSession]:
     return list(
         db.scalars(
             select(models.WorkoutSession)
             .options(selectinload(models.WorkoutSession.session_sets))
+            .where(ownership_filter(models.WorkoutSession, current_user))
             .order_by(models.WorkoutSession.started_at.desc())
             .limit(limit)
         )
@@ -109,7 +128,10 @@ def get_recent_sessions(
 
 
 @router.get("/dashboard-summary", response_model=schemas.DashboardSummaryRead)
-def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSummaryRead:
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> schemas.DashboardSummaryRead:
     sessions = list(
         db.scalars(
             select(models.WorkoutSession)
@@ -118,6 +140,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSum
                 selectinload(models.WorkoutSession.workout_day),
                 selectinload(models.WorkoutSession.session_sets),
             )
+            .where(ownership_filter(models.WorkoutSession, current_user))
             .order_by(models.WorkoutSession.started_at.desc(), models.WorkoutSession.id.desc())
         )
     )
@@ -149,6 +172,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSum
         latest_reflection = db.scalar(
             select(models.SessionReflection)
             .where(models.SessionReflection.workout_session_id == latest_session.id)
+            .where(ownership_filter(models.SessionReflection, current_user))
             .order_by(models.SessionReflection.created_at.desc(), models.SessionReflection.id.desc())
         )
         if latest_reflection is not None:
@@ -158,6 +182,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSum
             db.scalars(
                 select(models.ProgressionSuggestion)
                 .where(models.ProgressionSuggestion.workout_session_id == latest_session.id)
+                .where(ownership_filter(models.ProgressionSuggestion, current_user))
                 .order_by(models.ProgressionSuggestion.id.asc())
             )
         )
@@ -196,8 +221,9 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> schemas.DashboardSum
 def get_session(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.WorkoutSession:
-    return get_session_or_404(session_id, db)
+    return get_session_or_404(session_id, db, current_user)
 
 
 @router.post(
@@ -209,20 +235,22 @@ def create_session_set(
     session_id: int,
     session_set_in: schemas.SessionSetCreate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.SessionSet:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     if session.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This session is completed. Start a new session before logging more sets.",
         )
 
-    exercise = get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db)
+    exercise = get_exercise_for_session_or_404(session, session_set_in.workout_exercise_id, db, current_user)
     if session_set_exists(
         session_id,
         session_set_in.workout_exercise_id,
         session_set_in.set_number,
         db,
+        current_user,
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -231,6 +259,7 @@ def create_session_set(
 
     session_set = models.SessionSet(
         workout_session_id=session_id,
+        user_id=get_effective_user_id(current_user),
         exercise_name_snapshot=exercise.movement_name,
         workout_day_name_snapshot=session.workout_day.name if session.workout_day else "",
         program_name_snapshot=session.program.name if session.program else "",
@@ -249,15 +278,16 @@ def update_session_set(
     session_set_id: int,
     session_set_in: schemas.SessionSetUpdate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.SessionSet:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     if session.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This session is completed. Logged sets are locked for editing in this MVP.",
         )
 
-    session_set = get_session_set_or_404(session_id, session_set_id, db)
+    session_set = get_session_set_or_404(session_id, session_set_id, db, current_user)
     updates = session_set_in.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(session_set, field, value)
@@ -273,8 +303,9 @@ def finish_session(
     session_id: int,
     finish_in: schemas.WorkoutSessionFinishRequest,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.WorkoutSession:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     session.status = "completed"
     session.finished_at = utc_now()
 
@@ -285,15 +316,16 @@ def finish_session(
 
     db.add(session)
     db.commit()
-    return get_session_or_404(session_id, db)
+    return get_session_or_404(session_id, db, current_user)
 
 
 @router.post("/{session_id}/reflection", response_model=schemas.SessionReflectionRead)
 def generate_session_reflection(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.SessionReflection:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     if session.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -303,6 +335,7 @@ def generate_session_reflection(
     reflection_data, model_used = ai_session_reflection.generate_session_reflection_with_ai(session)
     reflection = models.SessionReflection(
         workout_session_id=session.id,
+        user_id=get_effective_user_id(current_user),
         model_used=model_used,
         **reflection_data,
     )
@@ -316,11 +349,13 @@ def generate_session_reflection(
 def get_session_reflection(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.SessionReflection:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     reflection = db.scalar(
         select(models.SessionReflection)
         .where(models.SessionReflection.workout_session_id == session.id)
+        .where(ownership_filter(models.SessionReflection, current_user))
         .order_by(models.SessionReflection.created_at.desc(), models.SessionReflection.id.desc())
     )
     if reflection is None:
@@ -338,8 +373,9 @@ def get_session_reflection(
 def generate_session_progression_suggestions(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[models.ProgressionSuggestion]:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     if session.status != "completed":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -349,10 +385,11 @@ def generate_session_progression_suggestions(
     db.execute(
         delete(models.ProgressionSuggestion).where(
             models.ProgressionSuggestion.workout_session_id == session.id,
+            ownership_filter(models.ProgressionSuggestion, current_user),
         )
     )
     suggestions = [
-        models.ProgressionSuggestion(**suggestion)
+        models.ProgressionSuggestion(user_id=get_effective_user_id(current_user), **suggestion)
         for suggestion in generate_progression_suggestions(session)
     ]
     db.add_all(suggestions)
@@ -369,12 +406,14 @@ def generate_session_progression_suggestions(
 def get_session_progression_suggestions(
     session_id: int,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[models.ProgressionSuggestion]:
-    session = get_session_or_404(session_id, db)
+    session = get_session_or_404(session_id, db, current_user)
     return list(
         db.scalars(
             select(models.ProgressionSuggestion)
             .where(models.ProgressionSuggestion.workout_session_id == session.id)
+            .where(ownership_filter(models.ProgressionSuggestion, current_user))
             .order_by(models.ProgressionSuggestion.id.asc())
         )
     )

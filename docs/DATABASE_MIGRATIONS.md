@@ -118,4 +118,4 @@ Do not autogenerate migrations blindly against a cloud database. Generate locall
 
 ## Current Sprint 5 Boundary
 
-Sprint 5 adds Supabase setup and validation documentation. It does not remove `create_all`, does not deploy to Render or Vercel, does not add Supabase Auth, and does not add user-owned data.
+Sprint 7 adds the user-owned data migration after the initial schema. It does not remove `create_all`, does not deploy to Render or Vercel, and does not add PostgreSQL RLS policies.

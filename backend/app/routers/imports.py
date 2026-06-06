@@ -5,6 +5,7 @@ from app import models, schemas
 from app.database import get_db
 from app.services.ai_enhance import enhance_workout_plan_with_ai
 from app.services.ai_import import analyze_workout_plan_with_ai
+from app.services.auth import AuthUser, get_current_user, get_effective_user_id
 
 router = APIRouter(prefix="/imports/workout-plan", tags=["workout plan imports"])
 
@@ -31,10 +32,13 @@ def enhance_workout_plan(
 def save_workout_plan_import(
     request: schemas.WorkoutPlanCommitRequest,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> schemas.WorkoutPlanCommitResponse:
     parsed_plan = request.parsed_plan
+    user_id = get_effective_user_id(current_user)
 
     program = models.Program(
+        user_id=user_id,
         name=parsed_plan.program.name,
         goal=parsed_plan.program.goal,
         duration_weeks=parsed_plan.program.duration_weeks,
@@ -48,6 +52,7 @@ def save_workout_plan_import(
     for day in parsed_plan.workout_days:
         workout_day = models.WorkoutDay(
             program_id=program.id,
+            user_id=user_id,
             name=day.name,
             day_order=day.day_order,
         )
@@ -58,6 +63,7 @@ def save_workout_plan_import(
         for exercise in day.exercises:
             workout_exercise = models.WorkoutExercise(
                 workout_day_id=workout_day.id,
+                user_id=user_id,
                 movement_name=exercise.movement_name,
                 sets=exercise.sets,
                 reps=exercise.reps,
@@ -87,6 +93,7 @@ def save_workout_plan_import(
 
     program_version = models.ProgramVersion(
         program_id=program.id,
+        user_id=user_id,
         version_label=version_label,
         version_type=version_type,
         source=source,

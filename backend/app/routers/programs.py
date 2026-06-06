@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.services.auth import AuthUser, get_current_user, get_effective_user_id
+from app.services.ownership import ownership_filter, require_owned
 
 router = APIRouter(prefix="/programs", tags=["programs"])
 
@@ -12,14 +14,17 @@ router = APIRouter(prefix="/programs", tags=["programs"])
 def create_program(
     program_in: schemas.ProgramCreate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.Program:
-    program = models.Program(**program_in.model_dump())
+    user_id = get_effective_user_id(current_user)
+    program = models.Program(user_id=user_id, **program_in.model_dump())
     db.add(program)
     db.commit()
     db.refresh(program)
 
     version = models.ProgramVersion(
         program_id=program.id,
+        user_id=user_id,
         version_label="Manual program",
         version_type="manual",
         source="manual",
@@ -32,19 +37,27 @@ def create_program(
 
 
 @router.get("", response_model=list[schemas.ProgramRead])
-def list_programs(db: Session = Depends(get_db)) -> list[models.Program]:
-    return list(db.scalars(select(models.Program).order_by(models.Program.created_at.desc())))
+def list_programs(
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> list[models.Program]:
+    return list(
+        db.scalars(
+            select(models.Program)
+            .where(ownership_filter(models.Program, current_user))
+            .order_by(models.Program.created_at.desc())
+        )
+    )
 
 
 @router.get("/{program_id}", response_model=schemas.ProgramRead)
-def get_program(program_id: int, db: Session = Depends(get_db)) -> models.Program:
+def get_program(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> models.Program:
     program = db.get(models.Program, program_id)
-    if program is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Program not found",
-        )
-    return program
+    return require_owned(program, current_user, "Program not found")
 
 
 @router.put("/{program_id}", response_model=schemas.ProgramRead)
@@ -52,13 +65,10 @@ def update_program(
     program_id: int,
     program_in: schemas.ProgramUpdate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.Program:
     program = db.get(models.Program, program_id)
-    if program is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Program not found",
-        )
+    program = require_owned(program, current_user, "Program not found")
 
     updates = program_in.model_dump(exclude_unset=True)
     for field, value in updates.items():
@@ -71,13 +81,13 @@ def update_program(
 
 
 @router.delete("/{program_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_program(program_id: int, db: Session = Depends(get_db)) -> None:
+def delete_program(
+    program_id: int,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> None:
     program = db.get(models.Program, program_id)
-    if program is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Program not found",
-        )
+    program = require_owned(program, current_user, "Program not found")
 
     db.delete(program)
     db.commit()

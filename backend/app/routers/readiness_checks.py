@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
+from app.services.auth import AuthUser, get_current_user, get_effective_user_id
+from app.services.ownership import ownership_filter
 
 router = APIRouter(prefix="/readiness-checks", tags=["readiness checks"])
 
@@ -30,8 +32,10 @@ def calculate_readiness_score(check: schemas.ReadinessCheckCreate) -> int | None
 def create_readiness_check(
     check_in: schemas.ReadinessCheckCreate,
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> models.ReadinessCheck:
     check = models.ReadinessCheck(
+        user_id=get_effective_user_id(current_user),
         **check_in.model_dump(),
         readiness_score=calculate_readiness_score(check_in),
     )
@@ -42,9 +46,14 @@ def create_readiness_check(
 
 
 @router.get("/latest", response_model=schemas.ReadinessCheckRead)
-def get_latest_readiness_check(db: Session = Depends(get_db)) -> models.ReadinessCheck:
+def get_latest_readiness_check(
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+) -> models.ReadinessCheck:
     check = db.scalar(
-        select(models.ReadinessCheck).order_by(
+        select(models.ReadinessCheck)
+        .where(ownership_filter(models.ReadinessCheck, current_user))
+        .order_by(
             models.ReadinessCheck.created_at.desc(),
             models.ReadinessCheck.id.desc(),
         )
@@ -61,10 +70,12 @@ def get_latest_readiness_check(db: Session = Depends(get_db)) -> models.Readines
 def list_readiness_checks(
     limit: int = Query(default=10, ge=1, le=50),
     db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
 ) -> list[models.ReadinessCheck]:
     return list(
         db.scalars(
             select(models.ReadinessCheck)
+            .where(ownership_filter(models.ReadinessCheck, current_user))
             .order_by(models.ReadinessCheck.created_at.desc(), models.ReadinessCheck.id.desc())
             .limit(limit)
         )

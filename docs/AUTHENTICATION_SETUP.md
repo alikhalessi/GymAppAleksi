@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Sprint 6 adds the SetPilot authentication foundation with Supabase Auth. The goal is sign up, sign in, sign out, session state, and backend auth status endpoints without breaking the local MVP flow.
+Sprint 6 adds the SetPilot authentication foundation with Supabase Auth. Sprint 7 connects that identity foundation to backend-owned app data.
 
-This sprint does not make existing workout data user-owned yet. Sprint 7 will add ownership fields, route protection, and data-access rules.
+The goal is sign up, sign in, sign out, session state, backend auth status, and user-scoped app data without breaking local MVP development.
 
 ## Supabase Auth Role In Phase 2
 
@@ -60,7 +60,11 @@ SUPABASE_JWT_SECRET=
 SUPABASE_JWKS_URL=
 ```
 
-`SUPABASE_JWT_SECRET` enables the current backend JWT verification path for `/auth/me`. `SUPABASE_JWKS_URL` is reserved for JWKS-based verification hardening. Do not commit real values.
+`SUPABASE_JWT_SECRET` enables the current backend JWT verification path for `/auth/me` and protected app data routes. `SUPABASE_JWKS_URL` is reserved for JWKS-based verification hardening. Do not commit real values.
+
+When `AUTH_REQUIRED=false` and no bearer token is present, backend app data routes use the stable fallback user id `local-dev-user`. This keeps local SQLite development and existing no-auth tests usable.
+
+When `AUTH_REQUIRED=true`, protected app data routes reject missing tokens with `401 Authentication required.` Do not enable this in staging until backend JWT verification is configured.
 
 ## What Sprint 6 Does
 
@@ -71,18 +75,25 @@ SUPABASE_JWKS_URL=
 - Adds backend `/auth/status` and `/auth/me` endpoints.
 - Keeps existing MVP data routes available in local/demo mode.
 
-## What Sprint 6 Does Not Do
+## What Sprint 7 Does
 
-- Does not add `user_id` ownership columns to app tables.
+- Adds nullable `user_id` ownership columns to app tables.
+- Adds an Alembic migration for user-owned data.
+- Applies backend route scoping for programs, workout days, exercises, planned sets, sessions, set logs, reflections, progression suggestions, dashboard summary, trainee profile, readiness checks, program versions, YouTube videos, and import saves.
+- Uses verified Supabase token subjects when backend JWT verification is configured.
+- Allows local fallback user ownership when `AUTH_REQUIRED=false`.
+- Adds tests for cross-user isolation and local fallback behavior.
+
+## What Sprint 7 Does Not Do
+
 - Does not add RLS policies.
-- Does not protect all existing data endpoints.
 - Does not deploy to Vercel or Render.
 - Does not store service-role keys in the frontend.
 - Does not claim production auth readiness.
 
-## Sprint 7 Preview
+## User-Owned Data
 
-Sprint 7 should add user-owned data. That means ownership columns, migrations, route protection, test coverage for cross-user isolation, and a clear RLS/backend authorization plan.
+See [User-owned data](USER_OWNED_DATA.md) for route coverage, table coverage, fallback behavior, and RLS status.
 
 ## Troubleshooting
 
@@ -101,6 +112,7 @@ Sprint 7 should add user-owned data. That means ownership columns, migrations, r
 ### Backend Auth Status Is Disabled
 
 - This is expected for local development when `AUTH_REQUIRED=false` and no JWT secret is configured.
+- App data routes use `local-dev-user` in this mode.
 - Set backend auth env values only in private local env or later in Render.
 
 ### Token Not Reaching Backend

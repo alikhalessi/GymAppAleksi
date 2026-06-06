@@ -20,9 +20,9 @@ def get_current_auth_user(
 
     if user is None:
         if status_data["verification_configured"]:
-            message = "No authenticated user. Existing MVP routes remain available until Sprint 7 route protection."
+            message = "No authenticated user. Local fallback data ownership is enabled when auth is not required."
         else:
-            message = "Authentication verification is disabled for local development."
+            message = "Authentication verification is disabled for local development; app data uses the local fallback user."
         return schemas.AuthMeResponse(
             authenticated=False,
             auth_required=bool(status_data["auth_required"]),
