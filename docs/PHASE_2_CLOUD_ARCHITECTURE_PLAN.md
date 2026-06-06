@@ -23,7 +23,7 @@ Local development must continue to work while cloud readiness is added in small,
 ### Database/Auth
 
 - Supabase for PostgreSQL.
-- Supabase Auth later, after database compatibility and migrations are ready.
+- Supabase Auth starts in Sprint 6 after database compatibility, migrations, and Supabase Postgres setup are ready.
 - Supabase Row Level Security later, once user-owned data is exposed.
 
 ## Architecture Diagram in Text
@@ -33,7 +33,7 @@ User Browser
   -> Vercel React Frontend
   -> Render FastAPI Backend
   -> Supabase PostgreSQL
-  -> Supabase Auth later
+  -> Supabase Auth
 
 External services:
   Render FastAPI Backend -> OpenAI API
@@ -75,7 +75,7 @@ This decision is about Phase 2 staging speed and operational simplicity, not a p
 - Vercel hosts the frontend.
 - Render hosts the FastAPI backend.
 - Supabase hosts PostgreSQL.
-- Supabase Auth is added later after the database layer is ready.
+- Supabase Auth starts in Sprint 6 after the database layer is ready.
 - Staging data should be disposable and separate from any future production data.
 
 ### Production-Later
@@ -101,14 +101,18 @@ These are planned variables and placeholders only. Do not commit real values.
 - `YOUTUBE_API_KEY`: backend-only YouTube Data API key.
 - `ALLOWED_ORIGINS`: allowed frontend origins for CORS.
 - `ENVIRONMENT`: local, staging, or production-later environment label.
+- `SUPABASE_URL`: Supabase project URL for backend auth context.
+- `SUPABASE_JWT_SECRET`: backend-only JWT verification secret, never exposed to the frontend.
+- `SUPABASE_JWKS_URL`: future JWKS verification endpoint.
+- `AUTH_REQUIRED`: auth enforcement flag, default false for local/demo compatibility.
 
-Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 added PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase. Sprint 4 adds Alembic tooling and an initial schema migration while keeping startup `create_all` for local prototype compatibility.
+Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 added PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase. Sprint 4 added Alembic tooling and an initial schema migration while keeping startup `create_all` for local prototype compatibility. Sprint 5 documented Supabase Postgres setup. Sprint 6 adds Supabase Auth foundation without user-owned data enforcement.
 
 ### Frontend
 
 - `VITE_API_BASE_URL`: planned frontend-visible API base URL.
-- `VITE_SUPABASE_URL`: later frontend-visible Supabase project URL.
-- `VITE_SUPABASE_ANON_KEY`: later frontend-visible Supabase anon key.
+- `VITE_SUPABASE_URL`: frontend-visible Supabase project URL for Auth.
+- `VITE_SUPABASE_ANON_KEY`: Supabase publishable key or legacy anon public key for Auth.
 
 Frontend variables are bundled into browser-accessible code. They must never contain backend secrets, private API keys, database passwords, service-role keys, or anything that would be unsafe if viewed by a user.
 
@@ -117,7 +121,7 @@ Frontend variables are bundled into browser-accessible code. They must never con
 - No secrets committed to Git.
 - Backend owns OpenAI and YouTube API keys.
 - Frontend calls the backend, not OpenAI or YouTube directly.
-- Supabase Auth and user-owned data are added later, after database compatibility is ready.
+- Supabase Auth foundation is added in Sprint 6. User-owned data, route protection, and RLS are added later.
 - RLS will matter once user-owned data can be accessed in a cloud environment.
 - AI outputs remain advisory and must not make medical claims.
 - AI changes to plans must remain reviewable and should not silently mutate user programs.
@@ -161,6 +165,6 @@ Frontend variables are bundled into browser-accessible code. They must never con
 
 ## Decision
 
-SetPilot Phase 2 will use Vercel for the React/Vite frontend, Render for the FastAPI backend, and Supabase for PostgreSQL plus future Auth.
+SetPilot Phase 2 will use Vercel for the React/Vite frontend, Render for the FastAPI backend, and Supabase for PostgreSQL plus Auth.
 
 This is accepted as the Phase 2 cloud-staging stack. It is not yet a production launch decision.

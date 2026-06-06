@@ -35,7 +35,7 @@ The current scaffold includes:
 - Frontend readiness enhancement flow that preserves original plans until the user saves an adjusted version
 - Frontend planned set weights, YouTube examples, workout session mode, set logging, rest timer, recent sessions, session detail view, AI reflection controls, progression suggestion controls, profile/readiness context, and dashboard guidance
 
-Authentication, payments, trainer dashboard, smartwatch sync, and nutrition are not included yet.
+Payments, trainer dashboard, smartwatch sync, and nutrition are not included yet. Supabase Auth foundation exists, but existing workout data is not user-owned until Sprint 7.
 
 ## Phase 2 Cloud-Staging Plan
 
@@ -48,6 +48,7 @@ Phase 2 planning documents:
 - [Phase 2 manual setup checklist](docs/PHASE_2_MANUAL_SETUP_CHECKLIST.md)
 - [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
+- [Authentication setup](docs/AUTHENTICATION_SETUP.md)
 
 ## Environment Configuration
 
@@ -60,6 +61,10 @@ Use [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md) for local, st
 SetPilot uses Alembic migration tooling for Phase 2 database discipline while keeping local SQLite development working. See [Database migrations](docs/DATABASE_MIGRATIONS.md) for local commands, safety rules, and the future Supabase/PostgreSQL migration path.
 
 Sprint 5 adds the founder-facing [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md) and [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md) for safe staging database preparation. These docs use placeholders only; real Supabase database URLs and passwords must stay out of Git.
+
+## Authentication
+
+Sprint 6 adds Supabase Auth foundation for sign up, sign in, sign out, and session state while keeping existing local MVP flows available. See [Authentication setup](docs/AUTHENTICATION_SETUP.md). User-owned data and full route protection are Sprint 7 work.
 
 ## MVP Scope
 
@@ -90,7 +95,7 @@ The local MVP should support:
 - AI import: OpenAI API with Structured Outputs style JSON schema
 - API key handling for local MVP: session-only backend memory, with environment variable fallback
 - Charts later: Recharts
-- Authentication later: not included in Sprint 1
+- Authentication: Supabase Auth foundation in Phase 2 Sprint 6; user-owned data later
 
 ## Repository Structure
 
@@ -311,7 +316,8 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Database migrations](docs/DATABASE_MIGRATIONS.md)
 - [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
 - [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
+- [Authentication setup](docs/AUTHENTICATION_SETUP.md)
 
 ## Current Development Rule
 
-Keep changes small and understandable. During Sprint 1, focus on one product slice at a time. Programs, workout days, exercises, AI import, and in-app API key settings are now the base. The next slice should be stored YouTube examples or workout session mode. Do not add authentication, payments, nutrition, trainer dashboard, or smartwatch integration until their sprint arrives.
+Keep changes small and understandable. Programs, workout days, exercises, AI import, workout execution, cloud setup, and Supabase Auth foundation are now the base. Do not add payments, nutrition, trainer dashboard, smartwatch integration, or user-owned data enforcement until their sprint arrives.

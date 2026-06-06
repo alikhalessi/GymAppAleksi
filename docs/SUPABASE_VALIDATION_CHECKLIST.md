@@ -19,6 +19,5 @@ Use this checklist for the manual Sprint 5 database validation. Do not paste rea
 - [ ] `alembic_version` table is visible in Supabase.
 - [ ] Local SQLite backend tests still pass.
 - [ ] Frontend build still passes.
-- [ ] Frontend still does not connect directly to Supabase.
-- [ ] Supabase Auth is still not implemented.
+- [ ] Frontend Supabase Auth configuration is validated separately in Sprint 6.
 - [ ] User-owned data and RLS are deferred to later sprints.

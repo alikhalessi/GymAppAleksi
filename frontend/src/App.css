@@ -62,6 +62,26 @@ select:disabled {
   backdrop-filter: blur(14px);
 }
 
+.top-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.auth-status-pill {
+  border: 1px solid rgba(159, 242, 184, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dff9e7;
+  max-width: min(34rem, 48vw);
+  overflow-wrap: anywhere;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .brand {
   margin: 0;
   color: #eaffef;
@@ -933,6 +953,21 @@ select:disabled {
   background: linear-gradient(180deg, #ffffff, #fbfdfb);
 }
 
+.auth-card {
+  gap: 1.1rem;
+}
+
+.auth-form,
+.auth-user-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-user-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .program-list {
   background: linear-gradient(180deg, #ffffff, #f7fbf8);
 }
@@ -1238,6 +1273,7 @@ select:focus-visible {
 
 @media (max-width: 520px) {
   .top-bar,
+  .top-status,
   .program-card,
   .form-actions,
   .card-actions {

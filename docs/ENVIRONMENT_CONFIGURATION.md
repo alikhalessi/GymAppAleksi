@@ -19,6 +19,10 @@ Local development remains the default. Cloud accounts are not required to run th
 | `OPENAI_CHANGE_PROPOSAL_MODEL` | No | No | Planned model setting for future reviewable change proposals. | `gpt-5.5` |
 | `YOUTUBE_API_KEY` | No | Yes for YouTube search | Backend-only YouTube Data API key. Manual video entry does not require it. | empty |
 | `ALLOWED_ORIGINS` | No | Yes | Comma-separated frontend origins allowed by CORS. Defaults to local Vite origins. | `http://localhost:5173,http://127.0.0.1:5173` |
+| `SUPABASE_URL` | No | Yes for auth later | Supabase project URL for backend auth context. Do not use a service-role key here. | empty |
+| `SUPABASE_JWT_SECRET` | No | Later | Backend-only JWT verification secret for Supabase access tokens. Never expose in frontend. | empty |
+| `SUPABASE_JWKS_URL` | No | Later | Future JWKS endpoint for stronger JWT verification flow. | empty |
+| `AUTH_REQUIRED` | No | Later | Whether backend auth is required. Defaults false for local/demo compatibility. | `false` |
 
 Compatibility note: `SETPILOT_DATABASE_URL` is still supported as a legacy local/test override. `DATABASE_URL` takes priority when both are set.
 
@@ -54,10 +58,12 @@ See [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) and [Supabase validati
 | Variable | Required locally? | Required in staging? | Description | Example placeholder |
 | --- | --- | --- | --- | --- |
 | `VITE_API_BASE_URL` | No | Yes | Frontend-visible backend API base URL. Falls back to `http://127.0.0.1:8000` locally. | `http://127.0.0.1:8000` |
-| `VITE_SUPABASE_URL` | No | Later | Future frontend-visible Supabase project URL, only when Supabase Auth is implemented. | empty |
-| `VITE_SUPABASE_ANON_KEY` | No | Later | Future frontend-visible Supabase anon key, only when Supabase Auth is implemented. | empty |
+| `VITE_SUPABASE_URL` | No | Yes for auth staging | Frontend-visible Supabase project URL for Auth. | empty |
+| `VITE_SUPABASE_ANON_KEY` | No | Yes for auth staging | Supabase publishable key or legacy anon public key for browser Auth. Never use service-role. | empty |
 
 `VITE_*` values are public in browser builds. Never put backend secrets, database passwords, OpenAI keys, YouTube keys, or Supabase service-role keys in frontend environment variables.
+
+See [Authentication setup](AUTHENTICATION_SETUP.md) before enabling Supabase Auth locally or in staging. Sprint 6 adds sign up, sign in, sign out, and session state only. Sprint 7 adds user-owned data and route protection.
 
 ## Local Setup Examples
 
@@ -100,6 +106,8 @@ Create `frontend/.env.local` if you want an explicit local API URL:
 
 ```text
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
 ```
 
 Then run:
@@ -109,7 +117,7 @@ cd frontend
 npm run dev
 ```
 
-The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is unset.
+The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is unset. Supabase Auth is disabled in the UI until both Supabase frontend variables are set. Restart Vite after changing frontend env files.
 
 ## Staging Plan Later
 
@@ -117,7 +125,7 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 
 - Set `VITE_API_BASE_URL` to the Render backend URL.
 - Do not put backend secrets in Vercel frontend variables.
-- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` only when Supabase Auth is implemented.
+- Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for Supabase Auth. Use only the publishable key or legacy anon public key.
 
 ### Render
 
@@ -130,8 +138,8 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 
 - Copy the database URL into Render only.
 - Keep service-role keys out of frontend variables.
-- Put the anon key in Vercel only when Supabase Auth is implemented.
-- Sprint 5 documents private Supabase PostgreSQL validation only. It does not connect the frontend to Supabase, add Supabase Auth, or add user-owned data.
+- Put the publishable key or legacy anon public key in Vercel for Supabase Auth.
+- Sprint 6 connects the frontend to Supabase Auth using public frontend config only. It does not add user-owned data or RLS yet.
 
 ## Secret Safety
 

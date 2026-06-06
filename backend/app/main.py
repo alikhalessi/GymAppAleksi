@@ -9,6 +9,7 @@ from sqlalchemy import inspect, text
 from app import models
 from app.database import engine
 from app.routers import (
+    auth,
     health,
     imports,
     planned_sets,
@@ -101,6 +102,7 @@ models.Base.metadata.create_all(bind=engine)
 ensure_local_sqlite_snapshot_columns()
 
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(settings.router)
 app.include_router(trainee_profile.router)
 app.include_router(readiness_checks.router)

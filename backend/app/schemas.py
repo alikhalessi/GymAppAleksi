@@ -179,6 +179,29 @@ class OpenAIKeyStatus(BaseModel):
     masked_key: str | None = None
 
 
+class AuthStatus(BaseModel):
+    auth_required: bool
+    supabase_url_configured: bool
+    jwt_secret_configured: bool
+    jwks_url_configured: bool
+    verification_configured: bool
+    verification_mode: str
+
+
+class AuthUserRead(BaseModel):
+    user_id: str
+    email: str | None = None
+    raw_claims: dict
+
+
+class AuthMeResponse(BaseModel):
+    authenticated: bool
+    auth_required: bool
+    verification_configured: bool
+    user: AuthUserRead | None = None
+    message: str
+
+
 class TraineeProfileUpdate(BaseModel):
     display_name: str | None = Field(default=None, max_length=120)
     age: int | None = Field(default=None, ge=10, le=100)

@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { getSupabaseConfigStatus, isSupabaseConfigured, supabase } from "./supabaseClient";
 import "./App.css";
 
 type Program = { id: number; name: string; goal: string; duration_weeks: number; created_at: string };
@@ -15,13 +17,14 @@ type TraineeProfile = { id: number; display_name: string; age: number | null; se
 type ReadinessCheck = { id: number; energy_level: number | null; sleep_quality: number | null; soreness_level: number | null; stress_level: number | null; pain_or_limitations_today: string; available_time_minutes: number | null; readiness_score: number | null; notes: string; created_at: string };
 type YouTubeVideo = { id: number; workout_exercise_id: number; youtube_video_id: string; title: string; channel_name: string; thumbnail_url: string; display_order: number; approved: boolean; created_at: string };
 type OpenAIKeyStatus = { configured: boolean; source: string | null; masked_key: string | null };
+type AuthStatus = { auth_required: boolean; supabase_url_configured: boolean; jwt_secret_configured: boolean; jwks_url_configured: boolean; verification_configured: boolean; verification_mode: string };
 type AIParsedExercise = { movement_name: string; sets: number; reps: string; rest_seconds: number; notes: string; exercise_order: number; confidence: number; warnings: string[] };
 type AIParsedWorkoutDay = { name: string; day_order: number; exercises: AIParsedExercise[] };
 type AIParsedPlan = { program: { name: string; goal: string; duration_weeks: number }; workout_days: AIParsedWorkoutDay[] };
 type ImportAnalysis = { parsed_plan: AIParsedPlan; overall_confidence: number; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
 type ReadinessProfile = { age: number | null; sex: string; height_cm: number | null; weight_kg: number | null; bmi: number | null; training_experience: string; primary_goal: string; energy_level: number; sleep_quality: number; soreness_level: number; stress_level: number; pain_or_limitations: string; available_equipment: string; session_time_limit_minutes: number | null; difficulty_preference: string; extra_notes: string };
 type EnhancementResponse = { adjusted_plan: AIParsedPlan; changes: { day_name: string; exercise_name: string | null; change_type: string; original: string; adjusted: string; reason: string }[]; summary: string; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
-type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "programs" | "training" | "settings";
+type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "programs" | "training" | "auth" | "settings";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
@@ -39,6 +42,7 @@ const navItems: { id: ActiveView; label: string; subtitle: string }[] = [
   { id: "programs", label: "Programs", subtitle: "library" },
   { id: "profile", label: "Profile", subtitle: "training context" },
   { id: "readiness", label: "Readiness", subtitle: "today context" },
+  { id: "auth", label: "Auth", subtitle: "login state" },
   { id: "settings", label: "Settings", subtitle: "keys" },
 ];
 
@@ -200,6 +204,12 @@ function App() {
 
   const [openAIKeyInput, setOpenAIKeyInput] = useState("");
   const [openAIKeyStatus, setOpenAIKeyStatus] = useState<OpenAIKeyStatus>({ configured: false, source: null, masked_key: null });
+  const [backendAuthStatus, setBackendAuthStatus] = useState<AuthStatus | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
   const [importText, setImportText] = useState(sampleImportText);
   const [importAnalysis, setImportAnalysis] = useState<ImportAnalysis | null>(null);
   const [planSavedMessage, setPlanSavedMessage] = useState<string | null>(null);
@@ -259,11 +269,35 @@ function App() {
     if (!activeSession || activeSession.status !== "completed") return null;
     return summarizeSession(activeSession);
   }, [activeSession]);
+  const authStatusLabel = !isSupabaseConfigured
+    ? "Auth not configured"
+    : authLoading
+      ? "Auth loading"
+      : currentUser
+        ? `Signed in as ${currentUser.email ?? currentUser.id}`
+        : "Signed out";
+
+  async function getAuthorizedHeaders(headers?: HeadersInit): Promise<Headers> {
+    const nextHeaders = new Headers(headers);
+    if (supabase) {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      if (accessToken && !nextHeaders.has("Authorization")) {
+        nextHeaders.set("Authorization", `Bearer ${accessToken}`);
+      }
+    }
+    return nextHeaders;
+  }
+
+  async function fetchApi(path: string, options?: RequestInit): Promise<Response> {
+    const headers = await getAuthorizedHeaders(options?.headers);
+    return fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  }
 
   async function api<T>(path: string, options?: RequestInit): Promise<T> {
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}${path}`, options);
+      response = await fetchApi(path, options);
     } catch (e) {
       throw new Error(formatUnknownError(e, BACKEND_UNREACHABLE_MESSAGE));
     }
@@ -273,6 +307,7 @@ function App() {
   }
 
   async function loadOpenAIKeyStatus() { setOpenAIKeyStatus(await api<OpenAIKeyStatus>("/settings/openai-key")); }
+  async function loadBackendAuthStatus() { setBackendAuthStatus(await api<AuthStatus>("/auth/status")); }
   async function loadPrograms() {
     const data = await api<Program[]>("/programs");
     setPrograms(data);
@@ -306,7 +341,7 @@ function App() {
     try {
       let response: Response;
       try {
-        response = await fetch(`${API_BASE_URL}/readiness-checks/latest`);
+        response = await fetchApi("/readiness-checks/latest");
       } catch (e) {
         throw new Error(formatUnknownError(e, BACKEND_UNREACHABLE_MESSAGE));
       }
@@ -336,7 +371,7 @@ function App() {
   async function loadSessionReflection(sessionId: number) {
     setReflectionLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}/reflection`);
+      const response = await fetchApi(`/sessions/${sessionId}/reflection`);
       const data = await response.json().catch(() => null);
       if (response.status === 404) { setSelectedSessionReflection(null); return; }
       if (!response.ok) throw new Error(formatApiError(data, "Could not load AI reflection."));
@@ -372,7 +407,21 @@ function App() {
     finally { setLoading(null); setProgressionLoading(false); }
   }
 
-  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); void loadLatestReadinessCheck(); }, []);
+  useEffect(() => {
+    if (!supabase) return;
+    setAuthLoading(true);
+    void supabase.auth.getSession()
+      .then(({ data }) => setCurrentUser(data.session?.user ?? null))
+      .catch((e) => setAuthError(formatUnknownError(e, "Could not load Supabase session.")))
+      .finally(() => setAuthLoading(false));
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+  useEffect(() => { void loadOpenAIKeyStatus().catch((e) => setError(e.message)); void loadBackendAuthStatus().catch((e) => setError(e.message)); void loadPrograms().catch((e) => setError(e.message)); void loadRecentSessions().catch((e) => setError(e.message)); void loadDashboardSummary().catch((e) => setError(e.message)); void loadTraineeProfile().catch((e) => setError(e.message)); void loadLatestReadinessCheck(); }, []);
   useEffect(() => {
     if (selectedProgramId === null) { setProgramVersions([]); setWorkoutDays([]); setSelectedWorkoutDayId(null); setExercises([]); setSelectedExerciseId(null); setPlannedSets([]); setYoutubeVideos([]); return; }
     void loadProgramVersions(selectedProgramId).catch((e) => setError(e.message));
@@ -436,6 +485,37 @@ function App() {
     finally { setLoading(null); }
   }
   async function clearOpenAIKey() { setError(null); setLoading("Clearing key"); try { setOpenAIKeyStatus(await api<OpenAIKeyStatus>("/settings/openai-key", { method: "DELETE" })); } catch (e) { setError(e instanceof Error ? e.message : "Could not clear key."); } finally { setLoading(null); } }
+
+  async function handleSignUp() {
+    if (!supabase) return;
+    setAuthError(null);
+    setAuthLoading(true);
+    const { data, error: signUpError } = await supabase.auth.signUp({ email: authEmail.trim(), password: authPassword });
+    if (signUpError) setAuthError(signUpError.message);
+    setCurrentUser(data.user ?? null);
+    setAuthLoading(false);
+  }
+
+  async function handleSignIn(event?: FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+    if (!supabase) return;
+    setAuthError(null);
+    setAuthLoading(true);
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({ email: authEmail.trim(), password: authPassword });
+    if (signInError) setAuthError(signInError.message);
+    setCurrentUser(data.user ?? null);
+    setAuthLoading(false);
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    setAuthError(null);
+    setAuthLoading(true);
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) setAuthError(signOutError.message);
+    setCurrentUser(null);
+    setAuthLoading(false);
+  }
   async function saveTraineeProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -942,12 +1022,40 @@ function App() {
     </section>;
   }
 
+  function renderAuthView() {
+    const configStatus = getSupabaseConfigStatus();
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Auth</p><h2>Supabase Auth Foundation</h2></div><p>Authentication is available for sign up, sign in, sign out, and session state. Existing MVP data routes remain open until Sprint 7.</p></div>
+      <div className="program-grid">
+        <div className="program-form auth-card">
+          <h3>Frontend auth state</h3>
+          <p className="muted">Status: {authStatusLabel}</p>
+          {!configStatus.configured ? <div className="setup-note"><strong>Supabase frontend config missing.</strong><p>Create `frontend/.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, then restart `npm run dev`.</p><p>Use only the Supabase publishable key or legacy anon public key. Never put service_role or secret keys in frontend env files.</p></div> : null}
+          {configStatus.configured && !currentUser ? <form className="auth-form" onSubmit={handleSignIn}>
+            <label>Email<input autoComplete="email" type="email" value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} /></label>
+            <label>Password<input autoComplete="current-password" type="password" value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} /></label>
+            {authError ? <p className="error-message">{authError}</p> : null}
+            <div className="form-actions"><button className="primary-button" disabled={authLoading || !authEmail.trim() || !authPassword} type="submit">Sign in</button><button className="secondary-button" disabled={authLoading || !authEmail.trim() || !authPassword} type="button" onClick={() => void handleSignUp()}>Sign up</button></div>
+          </form> : null}
+          {configStatus.configured && currentUser ? <div className="auth-user-panel"><p><strong>Email:</strong> {currentUser.email ?? "not provided"}</p><p><strong>User ID:</strong> {currentUser.id}</p>{authError ? <p className="error-message">{authError}</p> : null}<button className="danger-button" disabled={authLoading} type="button" onClick={() => void handleSignOut()}>Sign out</button></div> : null}
+        </div>
+        <div className="program-list">
+          <h3>Backend verification status</h3>
+          <p><strong>Auth required:</strong> {backendAuthStatus?.auth_required ? "true" : "false"}</p>
+          <p><strong>Verification configured:</strong> {backendAuthStatus?.verification_configured ? "true" : "false"}</p>
+          <p><strong>Mode:</strong> {backendAuthStatus?.verification_mode ?? "unknown"}</p>
+          <p className="setup-note">Sprint 6 does not protect Programs, Sessions, Profile, Readiness, Import, YouTube, or AI routes. Sprint 7 adds user-owned data and proper route protection.</p>
+          <button className="secondary-button" type="button" onClick={() => void loadBackendAuthStatus()}>Refresh backend auth status</button>
+        </div>
+      </div>
+    </section>;
+  }
+
   function renderSettingsView() {
-    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Settings</p><h2>API Keys & Configuration</h2></div><p>Settings are now utility controls, not the product’s front door.</p></div><div className="program-grid"><form className="program-form" onSubmit={saveOpenAIKey}><h3>OpenAI access</h3><p className="muted">Status: {openAIKeyStatus.configured ? `Configured from ${openAIKeyStatus.source} (${openAIKeyStatus.masked_key})` : "Not configured"}</p><p className="setup-note">OpenAI is required for plan import, enhancement, and AI session reflections. Never commit real API keys.</p><label>API key<input autoComplete="off" type="password" value={openAIKeyInput} onChange={(e) => setOpenAIKeyInput(e.target.value)} /></label><div className="form-actions"><button className="primary-button" disabled={!openAIKeyInput.trim() || loading !== null} type="submit">Save key</button><button className="secondary-button" disabled={loading !== null} type="button" onClick={() => void loadOpenAIKeyStatus()}>Check</button><button className="danger-button" disabled={loading !== null} type="button" onClick={() => void clearOpenAIKey()}>Clear</button></div></form><div className="program-list"><h3>YouTube key</h3><p>YouTube search uses backend environment variable <strong>YOUTUBE_API_KEY</strong>. Keep it in PowerShell/backend environment, not in GitHub.</p><p className="setup-note">After changing environment variables, restart the backend so uvicorn can read them.</p></div></div></section>;
+    return <section className="program-workspace"><div className="section-heading"><div><p className="eyebrow">Settings</p><h2>API Keys & Configuration</h2></div><p>Settings are utility controls for backend AI keys and frontend cloud configuration guidance.</p></div><div className="program-grid"><form className="program-form" onSubmit={saveOpenAIKey}><h3>OpenAI access</h3><p className="muted">Status: {openAIKeyStatus.configured ? `Configured from ${openAIKeyStatus.source} (${openAIKeyStatus.masked_key})` : "Not configured"}</p><p className="setup-note">OpenAI powers AI plan import, readiness enhancement, and AI session reflections. Never commit real API keys.</p><label>API key<input autoComplete="off" type="password" value={openAIKeyInput} onChange={(e) => setOpenAIKeyInput(e.target.value)} /></label><div className="form-actions"><button className="primary-button" disabled={!openAIKeyInput.trim() || loading !== null} type="submit">Save key</button><button className="secondary-button" disabled={loading !== null} type="button" onClick={() => void loadOpenAIKeyStatus()}>Check</button><button className="danger-button" disabled={loading !== null} type="button" onClick={() => void clearOpenAIKey()}>Clear</button></div></form><div className="program-list"><h3>YouTube key</h3><p>YouTube search uses backend environment variable <strong>YOUTUBE_API_KEY</strong>. Keep it in PowerShell/backend environment, not in GitHub.</p><p className="setup-note">After changing backend environment variables, restart uvicorn so the backend can read them.</p></div></div><div className="program-grid"><div className="program-list"><h3>Supabase frontend env</h3><p>Supabase Auth uses <strong>VITE_SUPABASE_URL</strong> and <strong>VITE_SUPABASE_ANON_KEY</strong> in `frontend/.env.local`.</p><p className="setup-note">Use the Supabase publishable key or legacy anon public key only. Never use service_role, JWT secrets, database URLs, or private keys in frontend variables. Restart `npm run dev` after editing frontend env files.</p></div><div className="program-list"><h3>Backend auth env</h3><p>Backend auth status is configured with <strong>SUPABASE_URL</strong>, <strong>SUPABASE_JWT_SECRET</strong>, <strong>SUPABASE_JWKS_URL</strong>, and <strong>AUTH_REQUIRED</strong>.</p><p className="setup-note">`AUTH_REQUIRED` defaults false for local development. Route lockdown and user-owned data are deferred to Sprint 7.</p></div></div></section>;
   }
 
   return <main className="app-shell">
-    <header className="top-bar"><h1 className="brand">SetPilot</h1><span className="phase-label">Training Operating System</span></header>
+    <header className="top-bar"><h1 className="brand">SetPilot</h1><div className="top-status"><span className="auth-status-pill">{authStatusLabel}</span><span className="phase-label">Training Operating System</span></div></header>
     <section className="dashboard"><div className="intro"><h2>Train the plan, not the chaos.</h2><p>SetPilot is shifting from a form-heavy prototype into a dashboard-first training cockpit: import, enhance, execute, learn.</p></div><nav className="actions" aria-label="SetPilot navigation">{navItems.map((item) => <button className={`action-button${activeView === item.id ? " active-action" : ""}`} key={item.id} type="button" onClick={() => setActiveView(item.id)}>{item.label}<span>{item.subtitle}</span></button>)}</nav></section>
     {error ? <section className="program-workspace"><div className="global-error" role="alert"><div className="list-header"><div><p className="empty-state-title">Something needs attention</p><p className="error-message">{error}</p>{errorActionHint(error) ? <p className="inline-help">{errorActionHint(error)}</p> : null}</div><button className="dismiss-button" type="button" onClick={() => setError(null)}>Dismiss</button></div></div></section> : null}
     {loading ? <section className="program-workspace"><p className="loading-banner">{loading}...</p></section> : null}
@@ -958,6 +1066,7 @@ function App() {
     {activeView === "readiness" ? renderReadinessView() : null}
     {activeView === "programs" ? renderProgramsView() : null}
     {activeView === "training" ? renderTrainingViewV2() : null}
+    {activeView === "auth" ? renderAuthView() : null}
     {activeView === "settings" ? renderSettingsView() : null}
   </main>;
 }
