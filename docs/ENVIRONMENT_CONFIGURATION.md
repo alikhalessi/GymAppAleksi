@@ -33,7 +33,21 @@ These are format examples only. Do not commit real usernames, passwords, hosts, 
 
 The backend dependency uses `psycopg[binary]`, the modern Psycopg 3 driver. Unqualified PostgreSQL URLs are normalized to the `postgresql+psycopg://` SQLAlchemy dialect so future Render/Supabase URLs can use that driver without adding psycopg2.
 
-Alembic uses the same `DATABASE_URL` resolution as the app. If `DATABASE_URL` is unset, migration commands also fall back to local SQLite. Supabase PostgreSQL migration execution is planned for Sprint 5, after the Alembic baseline is reviewed.
+Alembic uses the same `DATABASE_URL` resolution as the app. If `DATABASE_URL` is unset, migration commands also fall back to local SQLite. Sprint 5 documents Supabase PostgreSQL validation, but the repository still must not contain real Supabase connection strings.
+
+## Supabase PostgreSQL Configuration
+
+Local development remains SQLite by default. Leave `DATABASE_URL` unset, or set it to `sqlite:///./setpilot.db`, when working on local MVP behavior.
+
+For Sprint 5 validation, a Supabase PostgreSQL `DATABASE_URL` may be set only in a local shell or private, ignored `.env` file. Later, Render should receive the Supabase `DATABASE_URL` through Render environment variables, not through committed files.
+
+Connection mode guidance:
+
+- Direct connection is preferred for Alembic migrations when available.
+- Session pooler can be used when direct connection is unavailable or an IPv4-only environment requires it.
+- Transaction pooler is not preferred for migrations because transaction pooling can conflict with prepared statements, migration connection state, and DDL behavior.
+
+See [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) and [Supabase validation checklist](SUPABASE_VALIDATION_CHECKLIST.md) before running Alembic against Supabase.
 
 ## Frontend Environment Variables
 
@@ -69,7 +83,7 @@ Future staging placeholder only:
 $env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.invalid:5432/setpilot"
 ```
 
-Do not use or commit real Supabase connection strings yet. PostgreSQL compatibility is prepared in Sprint 3, but actual Supabase connection comes later after Alembic migrations.
+Do not commit real Supabase connection strings. PostgreSQL compatibility was prepared in Sprint 3, Alembic was added in Sprint 4, and Sprint 5 allows private manual Supabase validation only.
 
 Local Alembic status check:
 
@@ -117,7 +131,7 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 - Copy the database URL into Render only.
 - Keep service-role keys out of frontend variables.
 - Put the anon key in Vercel only when Supabase Auth is implemented.
-- Sprint 3 prepares PostgreSQL URL and driver compatibility only. It does not connect this repository to Supabase.
+- Sprint 5 documents private Supabase PostgreSQL validation only. It does not connect the frontend to Supabase, add Supabase Auth, or add user-owned data.
 
 ## Secret Safety
 

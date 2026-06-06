@@ -28,6 +28,9 @@ This checklist is for the human founder. It prepares cloud accounts and decision
 - [ ] Create or sign in to Supabase.
 - [ ] Prepare project name: `setpilot-db`.
 - [ ] Choose an EU region if available and appropriate.
+- [ ] Store the database password in a password manager.
+- [ ] Use [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) before running Alembic against Supabase.
+- [ ] Complete [Supabase validation checklist](SUPABASE_VALIDATION_CHECKLIST.md) during Sprint 5 validation.
 - [ ] Do not connect production data yet.
 
 ## Secrets

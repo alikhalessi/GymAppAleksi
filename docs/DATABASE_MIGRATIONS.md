@@ -16,9 +16,9 @@ sqlite:///./setpilot.db
 
 You can keep running the backend locally without cloud accounts. Existing local SQLite files are not deleted automatically. If you intentionally reset a prototype database, do that manually and only after confirming you do not need its data.
 
-## Future Supabase PostgreSQL Role
+## Supabase PostgreSQL Role
 
-Supabase PostgreSQL is planned for a later Phase 2 sprint. Sprint 4 only adds migration infrastructure and an initial schema migration. Do not paste real Supabase connection strings into committed files.
+Supabase PostgreSQL is the Phase 2 database target for future staging. Sprint 5 documents how the founder can validate the Alembic baseline against a private Supabase database. Do not paste real Supabase connection strings into committed files.
 
 When Supabase is introduced, `DATABASE_URL` should be set in the backend hosting environment only.
 
@@ -80,6 +80,34 @@ Placeholder-only future PostgreSQL example:
 $env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.invalid:5432/setpilot"
 ```
 
+## Running Alembic Against Supabase Postgres
+
+Before running these commands, read [Supabase Postgres setup](SUPABASE_POSTGRES_SETUP.md) and keep the real connection string private.
+
+Set `DATABASE_URL` in the local shell only:
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
+$env:DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@YOUR_HOST:5432/postgres"
+```
+
+Check the current migration state:
+
+```powershell
+alembic current
+```
+
+Apply reviewed migrations:
+
+```powershell
+alembic upgrade head
+```
+
+After migration, verify tables in the Supabase Table Editor or SQL editor. Confirm the expected SetPilot tables and `alembic_version` exist.
+
+Do not autogenerate migrations blindly against a cloud database. Generate locally, review the migration file, confirm table names, columns, indexes, foreign keys, downgrade behavior, and then run reviewed migrations against Supabase.
+
 ## Safety Rules
 
 - Do not run destructive migrations blindly.
@@ -88,6 +116,6 @@ $env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.inva
 - Do not commit real `DATABASE_URL` values.
 - Keep local SQLite and future PostgreSQL behavior in mind when reviewing generated operations.
 
-## Current Sprint 4 Boundary
+## Current Sprint 5 Boundary
 
-Sprint 4 adds Alembic configuration, an initial schema migration, and documentation. It does not remove `create_all`, does not connect to Supabase, and does not add authentication or user-owned data.
+Sprint 5 adds Supabase setup and validation documentation. It does not remove `create_all`, does not deploy to Render or Vercel, does not add Supabase Auth, and does not add user-owned data.

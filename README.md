@@ -46,6 +46,8 @@ Phase 2 planning documents:
 - [Phase 2 cloud architecture plan](docs/PHASE_2_CLOUD_ARCHITECTURE_PLAN.md)
 - [Cloud decision record](docs/CLOUD_DECISION_RECORD.md)
 - [Phase 2 manual setup checklist](docs/PHASE_2_MANUAL_SETUP_CHECKLIST.md)
+- [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
+- [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 
 ## Environment Configuration
 
@@ -56,6 +58,8 @@ Use [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md) for local, st
 ## Database Migrations
 
 SetPilot uses Alembic migration tooling for Phase 2 database discipline while keeping local SQLite development working. See [Database migrations](docs/DATABASE_MIGRATIONS.md) for local commands, safety rules, and the future Supabase/PostgreSQL migration path.
+
+Sprint 5 adds the founder-facing [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md) and [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md) for safe staging database preparation. These docs use placeholders only; real Supabase database URLs and passwords must stay out of Git.
 
 ## MVP Scope
 
@@ -305,6 +309,8 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Codex prompts](docs/codex-prompts.md)
 - [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md)
 - [Database migrations](docs/DATABASE_MIGRATIONS.md)
+- [Supabase Postgres setup](docs/SUPABASE_POSTGRES_SETUP.md)
+- [Supabase validation checklist](docs/SUPABASE_VALIDATION_CHECKLIST.md)
 
 ## Current Development Rule
 
