@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +25,25 @@ from app.routers import (
 
 app = FastAPI(title="SetPilot API", version="0.1.0")
 
+DEFAULT_ALLOWED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+
+def get_allowed_origins() -> list[str]:
+    raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+    if not raw_origins:
+        return DEFAULT_ALLOWED_ORIGINS
+
+    cleaned = raw_origins
+    if cleaned.startswith("[") and cleaned.endswith("]"):
+        cleaned = cleaned[1:-1]
+
+    origins = [origin.strip() for origin in cleaned.split(",") if origin.strip()]
+    return origins or DEFAULT_ALLOWED_ORIGINS
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

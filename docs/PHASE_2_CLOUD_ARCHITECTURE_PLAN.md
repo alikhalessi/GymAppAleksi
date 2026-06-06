@@ -67,8 +67,8 @@ This decision is about Phase 2 staging speed and operational simplicity, not a p
 - React/Vite frontend runs locally.
 - FastAPI backend runs locally.
 - SQLite remains allowed for local development at the start of Phase 2.
-- Current backend code reads `SETPILOT_DATABASE_URL` for the database override and defaults to `sqlite:///./setpilot.db`.
-- Current frontend code still uses the local backend URL in code; wiring `VITE_API_BASE_URL` is planned for Sprint 2.
+- Backend database configuration reads `DATABASE_URL`, keeps `SETPILOT_DATABASE_URL` as a legacy local/test override, and defaults to `sqlite:///./setpilot.db`.
+- Frontend API configuration reads `VITE_API_BASE_URL` and falls back to `http://127.0.0.1:8000`.
 
 ### Staging
 
@@ -102,7 +102,7 @@ These are planned variables and placeholders only. Do not commit real values.
 - `ALLOWED_ORIGINS`: allowed frontend origins for CORS.
 - `ENVIRONMENT`: local, staging, or production-later environment label.
 
-Implementation note: the current backend code reads `SETPILOT_DATABASE_URL`, not `DATABASE_URL`, and CORS origins are currently hardcoded in `backend/app/main.py`. Sprint 2 should introduce safe environment configuration without breaking local development.
+Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults.
 
 ### Frontend
 

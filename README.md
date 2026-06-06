@@ -47,6 +47,12 @@ Phase 2 planning documents:
 - [Cloud decision record](docs/CLOUD_DECISION_RECORD.md)
 - [Phase 2 manual setup checklist](docs/PHASE_2_MANUAL_SETUP_CHECKLIST.md)
 
+## Environment Configuration
+
+SetPilot keeps local development as the default. Cloud accounts are not required to run the local MVP.
+
+Use [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md) for local, staging, and future-production configuration rules. Safe placeholder examples live in `backend/.env.example` and `frontend/.env.example`. Real `.env` files and secrets must not be committed.
+
 ## MVP Scope
 
 The local MVP should support:
@@ -293,6 +299,7 @@ For production, this must be replaced with proper user accounts, encrypted secre
 - [Data model](docs/data-model.md)
 - [Architecture](docs/architecture.md)
 - [Codex prompts](docs/codex-prompts.md)
+- [Environment configuration](docs/ENVIRONMENT_CONFIGURATION.md)
 
 ## Current Development Rule
 

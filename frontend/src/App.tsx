@@ -23,8 +23,10 @@ type ReadinessProfile = { age: number | null; sex: string; height_cm: number | n
 type EnhancementResponse = { adjusted_plan: AIParsedPlan; changes: { day_name: string; exercise_name: string | null; change_type: string; original: string; adjusted: string; reason: string }[]; summary: string; warnings: string[]; questions_for_user: string[]; trainer_review_required: boolean };
 type ActiveView = "dashboard" | "import" | "enhance" | "profile" | "readiness" | "programs" | "training" | "settings";
 
-const API_BASE_URL = "http://127.0.0.1:8000";
-const BACKEND_UNREACHABLE_MESSAGE = "Backend is unreachable.\nStart backend with: cd backend; .\\.venv\\Scripts\\activate; uvicorn app.main:app --reload\nExpected API: http://127.0.0.1:8000";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+const API_BASE_URL = (configuredApiBaseUrl || DEFAULT_API_BASE_URL).replace(/\/+$/, "");
+const BACKEND_UNREACHABLE_MESSAGE = `Backend is unreachable.\nStart backend with: cd backend; .\\.venv\\Scripts\\activate; uvicorn app.main:app --reload\nExpected API: ${API_BASE_URL}`;
 const sampleImportText = `Program: Strength Foundation\nDuration: 8 weeks\nGoal: Build strength and muscle\n\nDay 1 - Upper Body\nBench Press - 4 sets - 6-8 reps - 120 sec rest\nLat Pulldown - 3 sets - 10 reps - 90 sec rest\n\nDay 2 - Lower Body\nSquat - 5x5 - 180 sec rest\nRomanian Deadlift - 3x8 - 120 sec rest`;
 const defaultReadiness: ReadinessProfile = { age: 45, sex: "", height_cm: 167, weight_kg: 98, bmi: 35.1, training_experience: "intermediate", primary_goal: "strength and fat loss", energy_level: 7, sleep_quality: 7, soreness_level: 4, stress_level: 5, pain_or_limitations: "", available_equipment: "full gym", session_time_limit_minutes: 75, difficulty_preference: "moderate", extra_notes: "" };
 const emptyProfileForm = { display_name: "", age: "", sex: "", height_cm: "", weight_kg: "", training_experience: "", primary_goal: "", limitations: "", available_equipment: "", preferred_session_minutes: "", notes: "" };
