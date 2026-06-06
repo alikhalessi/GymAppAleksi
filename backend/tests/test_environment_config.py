@@ -1,4 +1,12 @@
-from app.database import DEFAULT_SQLITE_DATABASE_URL, get_connect_args, get_database_url
+import importlib
+
+import app
+from app.database import (
+    DEFAULT_SQLITE_DATABASE_URL,
+    get_connect_args,
+    get_database_url,
+    normalize_database_url,
+)
 from app.main import DEFAULT_ALLOWED_ORIGINS, get_allowed_origins
 
 
@@ -26,6 +34,35 @@ def test_database_url_keeps_legacy_override_for_local_tests(monkeypatch) -> None
 def test_connect_args_are_sqlite_only() -> None:
     assert get_connect_args("sqlite:///./setpilot.db") == {"check_same_thread": False}
     assert get_connect_args("postgresql://example.invalid/setpilot") == {}
+    assert get_connect_args("postgresql+psycopg://example.invalid/setpilot") == {}
+    assert get_connect_args("postgresql+psycopg2://example.invalid/setpilot") == {}
+
+
+def test_postgres_url_is_normalized_for_sqlalchemy(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgres://user:password@example.invalid:5432/setpilot")
+
+    assert get_database_url() == "postgresql+psycopg://user:password@example.invalid:5432/setpilot"
+
+
+def test_bare_postgresql_url_uses_selected_psycopg_driver(monkeypatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@example.invalid:5432/setpilot")
+
+    assert get_database_url() == "postgresql+psycopg://user:password@example.invalid:5432/setpilot"
+
+
+def test_supported_postgresql_driver_urls_are_preserved() -> None:
+    assert (
+        normalize_database_url("postgresql+psycopg://user:password@example.invalid/setpilot")
+        == "postgresql+psycopg://user:password@example.invalid/setpilot"
+    )
+    assert (
+        normalize_database_url("postgresql+psycopg2://user:password@example.invalid/setpilot")
+        == "postgresql+psycopg2://user:password@example.invalid/setpilot"
+    )
+
+
+def test_app_package_imports_without_postgresql_server() -> None:
+    assert importlib.import_module(app.__name__) is app
 
 
 def test_allowed_origins_default_to_local_frontend(monkeypatch) -> None:

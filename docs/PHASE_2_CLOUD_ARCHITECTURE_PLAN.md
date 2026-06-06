@@ -102,7 +102,7 @@ These are planned variables and placeholders only. Do not commit real values.
 - `ALLOWED_ORIGINS`: allowed frontend origins for CORS.
 - `ENVIRONMENT`: local, staging, or production-later environment label.
 
-Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults.
+Implementation note: Sprint 2 introduced `DATABASE_URL` handling and `ALLOWED_ORIGINS` parsing while preserving local SQLite and local Vite defaults. Sprint 3 adds PostgreSQL URL normalization, a PostgreSQL driver dependency, and dialect-aware engine options without connecting to Supabase.
 
 ### Frontend
 
@@ -142,9 +142,9 @@ Frontend variables are bundled into browser-accessible code. They must never con
 
 - Keep local SQLite working initially.
 - Introduce `DATABASE_URL` handling in a controlled Sprint 2 change, with backwards compatibility for current local workflows.
-- Add PostgreSQL compatibility checks before connecting to Supabase.
-- Add Alembic migrations after the database boundary is clear.
-- Connect Supabase PostgreSQL only after migrations are ready.
+- Sprint 3 prepares PostgreSQL compatibility checks before connecting to Supabase.
+- Sprint 4 adds Alembic migrations after the database boundary is clear.
+- Sprint 5 connects Supabase PostgreSQL only after migrations are ready.
 - Avoid breaking local development while cloud staging is introduced.
 - Keep production data out of the process until staging is proven.
 

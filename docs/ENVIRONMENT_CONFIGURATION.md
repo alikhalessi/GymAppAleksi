@@ -11,7 +11,7 @@ Local development remains the default. Cloud accounts are not required to run th
 | Variable | Required locally? | Required in staging? | Description | Example placeholder |
 | --- | --- | --- | --- | --- |
 | `ENVIRONMENT` | No | Yes | Environment label used to distinguish local, staging, and future production behavior. | `local` |
-| `DATABASE_URL` | No | Yes | Canonical Phase 2 database URL. Defaults to local SQLite when unset. | `sqlite:///./setpilot.db` |
+| `DATABASE_URL` | No | Yes | Canonical Phase 2 database URL. Defaults to local SQLite when unset. Unqualified `postgres://` and `postgresql://` URLs are normalized to `postgresql+psycopg://` for SQLAlchemy's selected PostgreSQL driver. | `sqlite:///./setpilot.db` |
 | `OPENAI_API_KEY` | No | Yes for AI features | Backend-only OpenAI API key. The in-app local session key can still be used during local development. | empty |
 | `OPENAI_WORKOUT_IMPORT_MODEL` | No | No | Model used for workout plan extraction. | `gpt-5.5` |
 | `OPENAI_WORKOUT_ENHANCE_MODEL` | No | No | Model used for readiness-based plan enhancement. | `gpt-5.5` |
@@ -21,6 +21,17 @@ Local development remains the default. Cloud accounts are not required to run th
 | `ALLOWED_ORIGINS` | No | Yes | Comma-separated frontend origins allowed by CORS. Defaults to local Vite origins. | `http://localhost:5173,http://127.0.0.1:5173` |
 
 Compatibility note: `SETPILOT_DATABASE_URL` is still supported as a legacy local/test override. `DATABASE_URL` takes priority when both are set.
+
+Supported future PostgreSQL URL formats:
+
+- `postgresql://user:password@host:5432/database`
+- `postgresql+psycopg://user:password@host:5432/database`
+- `postgresql+psycopg2://user:password@host:5432/database`
+- `postgres://user:password@host:5432/database`, normalized internally to `postgresql+psycopg://...`
+
+These are format examples only. Do not commit real usernames, passwords, hosts, or database names.
+
+The backend dependency uses `psycopg[binary]`, the modern Psycopg 3 driver. Unqualified PostgreSQL URLs are normalized to the `postgresql+psycopg://` SQLAlchemy dialect so future Render/Supabase URLs can use that driver without adding psycopg2.
 
 ## Frontend Environment Variables
 
@@ -49,6 +60,14 @@ cd backend
 $env:DATABASE_URL="sqlite:///./setpilot.db"
 uvicorn app.main:app --reload
 ```
+
+Future staging placeholder only:
+
+```powershell
+$env:DATABASE_URL="postgresql+psycopg://setpilot_user:replace_me@db.example.invalid:5432/setpilot"
+```
+
+Do not use or commit real Supabase connection strings yet. PostgreSQL compatibility is prepared in Sprint 3, but actual Supabase connection comes later after Alembic migrations.
 
 ### Frontend With `.env.local`
 
@@ -87,6 +106,7 @@ The app still falls back to `http://127.0.0.1:8000` if `VITE_API_BASE_URL` is un
 - Copy the database URL into Render only.
 - Keep service-role keys out of frontend variables.
 - Put the anon key in Vercel only when Supabase Auth is implemented.
+- Sprint 3 prepares PostgreSQL URL and driver compatibility only. It does not connect this repository to Supabase.
 
 ## Secret Safety
 
