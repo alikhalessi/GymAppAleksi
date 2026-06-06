@@ -37,6 +37,16 @@ The current scaffold includes:
 
 Authentication, payments, trainer dashboard, smartwatch sync, and nutrition are not included yet.
 
+## Phase 2 Cloud-Staging Plan
+
+Phase 1 is the local MVP. Phase 2 will move SetPilot toward a cloud-staging SaaS foundation while preserving local development.
+
+Phase 2 planning documents:
+
+- [Phase 2 cloud architecture plan](docs/PHASE_2_CLOUD_ARCHITECTURE_PLAN.md)
+- [Cloud decision record](docs/CLOUD_DECISION_RECORD.md)
+- [Phase 2 manual setup checklist](docs/PHASE_2_MANUAL_SETUP_CHECKLIST.md)
+
 ## MVP Scope
 
 The local MVP should support:
